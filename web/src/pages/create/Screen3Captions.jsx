@@ -19,10 +19,9 @@ function SaveBlock({ s, open, setOpen }) {
   );
 }
 
-// Screen 3 — Transcription & Caption Styles. Transcription already started in
-// the background the moment Screen 2 was entered (usePrep); this screen just
-// surfaces its progress alongside the full style picker (built-in themes,
-// live customizer, and saveable custom presets — unchanged from before).
+// Screen 3 — Caption editor. Transcription starts in the background on Screen 2;
+// the Customize pane holds editing controls and saved styles, with the transcript
+// available in its own tab.
 export default function Screen3Captions({
   studio, language, onFontUpload, media, prepView, sourceReady,
   transcript, curTime, seekTo, videoRef, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig,
