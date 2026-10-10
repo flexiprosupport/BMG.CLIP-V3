@@ -53,7 +53,10 @@ export default function Create({ step, setStep }) {
   const outputAspect = fit === "square" ? "1:1" : aspect;
   function setOutputAspect(v) {
     if (v === "1:1") setFit("square");
-    else { setFit("crop"); setAspect(v); }
+    else {
+      setFit((current) => current === "square" ? "crop" : current);
+      setAspect(v);
+    }
   }
 
   // Background music
@@ -329,7 +332,7 @@ export default function Create({ step, setStep }) {
       {step === 2 && (
         <Screen2Settings
           media={media} sourceReady={sourceReady} prepView={prepView}
-          outputAspect={outputAspect} setOutputAspect={setOutputAspect}
+          outputAspect={outputAspect} setOutputAspect={setOutputAspect} setFit={setFit}
           squareCorners={squareCorners} setSquareCorners={setSquareCorners}
           barText={barText} setBarText={setBarText} barTextColor={barTextColor} setBarTextColor={setBarTextColor}
           barTextAnim={barTextAnim} setBarTextAnim={setBarTextAnim}
