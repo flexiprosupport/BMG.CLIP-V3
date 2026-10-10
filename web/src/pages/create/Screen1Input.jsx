@@ -63,7 +63,7 @@ export default function Screen1Input({
         {error && <div className="error landing-error">{error}</div>}
 
         <div className="landing-hints">
-          {["Drag & drop a file onto the bar", "9:16, 16:9 & 1:1 square", "19 caption styles", "Manual reframe & keyframes"].map((h) => (
+          {["Drag & drop a file onto the bar", "9:16, 16:9 & 1:1 square", "104 caption styles", "Manual reframe & keyframes"].map((h) => (
             <span className="hint-chip" key={h}><span className="hc-check"><Icons.check /></span>{h}</span>
           ))}
         </div>
@@ -94,7 +94,7 @@ export default function Screen1Input({
           <h2 className="landing-h2">Everything a short-form editor needs — done locally</h2>
           <div className="feature-grid">
             {[
-              [<Icons.create />, "19+ caption styles", "Hormozi-style, karaoke, word-reveal & more — or build and save your own."],
+              [<Icons.create />, "104 caption styles", "Premium, multiline, multicolour, karaoke & more — customize and save inside the editor."],
               [<Icons.crop />, "Manual reframe & keyframes", "Drag the crop box across time so the important part of the shot is never cut off."],
               [<Icons.film />, "Cinematic effects", "Colour grades, glow, vignette, film grain, gradients & letterboxing."],
               [<Icons.bolt />, "Auto-picked best moments", "Topic-aware clip selection finds natural start/end points, not mid-sentence cuts."],

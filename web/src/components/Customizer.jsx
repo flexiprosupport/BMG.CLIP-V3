@@ -66,6 +66,9 @@ const ANIMS = [
 // 3×3 anchor grid → [x%, y%]
 const POS = [[8, 14], [50, 14], [92, 14], [8, 50], [50, 50], [92, 50], [8, 88], [50, 88], [92, 88]];
 
+import NativeCaptionControls from "./NativeCaptionControls.jsx";
+import NativeCaptionCanvas from "./NativeCaptionCanvas.jsx";
+
 export default function Customizer({ studio, onFontUpload }) {
   const { cfg, setOverride, resetOverrides, fonts, presets, styleId, selectPreset } = studio;
   const fileRef = useRef(null);
@@ -130,13 +133,15 @@ export default function Customizer({ studio, onFontUpload }) {
         </div>
         {/* Live preview of the current caption style */}
         <div className="cz-preview">
-          <span className="cz-preview-cap" style={captionLineStyle(cfg, { fontPx: 25, scale: 0.2 })}>
+          {cfg.engine === "canvas" ? <div style={{ width: "100%", height: 110 }}><NativeCaptionCanvas cfg={cfg} overrides={studio.overrides} thumbnail /></div> : <span className="cz-preview-cap" style={captionLineStyle(cfg, { fontPx: 25, scale: 0.2 })}>
             {["Make", "it", "go", "viral"].map((w, i) => (
               <span key={i} style={{ color: i === 3 && (anim === "highlight" || anim === "karaoke") ? (cfg.highlight_color || "#FFD400") : undefined }}>{w} </span>
             ))}
-          </span>
+          </span>}
         </div>
       </div>
+
+      <NativeCaptionControls studio={studio} />
 
       {/* Theme cards */}
       <div className="cz-field">

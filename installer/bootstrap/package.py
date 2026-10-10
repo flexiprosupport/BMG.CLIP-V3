@@ -22,12 +22,12 @@ if revision is None:
         revision = "local source"
 
 files = []
-for folder in ("app", "web/dist", "static"):
+for folder in ("app", "web/dist", "static", "caption_renderer", "assets/fonts"):
     directory = root / folder
     if not directory.is_dir():
         raise SystemExit(f"Missing app folder: {directory}")
     for source in sorted(directory.rglob("*")):
-        if source.is_file() and "__pycache__" not in source.parts and source.suffix != ".pyc":
+        if source.is_file() and not {"__pycache__", "node_modules"}.intersection(source.parts) and source.suffix != ".pyc":
             files.append((source, source.relative_to(root).as_posix()))
 for name in (
     "requirements.txt", "Launch.ps1", "Setup.ps1", "Setup.cmd",
@@ -46,7 +46,7 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compressleve
         "INSTALLER-INFO.txt",
         f"BMG.CLIP-V3 Windows Preview\nSource revision: {revision}\n"
         "Native Windows x64 online setup executable; app files are embedded.\n"
-        "Python packages are installed during setup. Missing Python/FFmpeg require confirmation.\n"
+        "Python and Node caption packages are installed during setup. Missing Python/FFmpeg/Node require confirmation.\n"
         "Unsigned build. A complete installation on a Windows PC has not been verified here.\n",
     )
 digest = hashlib.sha256(output.read_bytes()).hexdigest()

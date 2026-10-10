@@ -14,6 +14,9 @@ A local AI video clipping app with a React dashboard, Whisper transcription, sty
 - Transcribe locally with faster-whisper.
 - Select highlights and create captioned short clips.
 - Customize caption styles, framing, effects, and background music.
+- Choose all 104 caption styles inside the editor: 19 existing styles plus 85
+  additional styles, including Premium, multiline and multicolour designs.
+- Enable Background blur and set intensity from 0–100%; drag captions anywhere.
 - Review and download finished clips.
 - Yellow BMG.CLIP-V3 branding, browser icon, and Windows icon.
 
@@ -22,7 +25,7 @@ A local AI video clipping app with a React dashboard, Whisper transcription, sty
 The native **BMG.CLIP-V3-Setup.exe** is a Windows x64 console-based online
 installer. It embeds the app files, installs them under the current account's
 Local AppData Programs folder, and starts guided dependency/desktop-shortcut
-setup. Internet is required for Python packages; missing Python/FFmpeg require
+setup. Internet is required for Python/Node packages; missing Python/FFmpeg/Node require
 confirmation. The preview EXE is unsigned. Compilation and archive-extraction
 tests do not establish that installation on every Windows PC succeeds.
 
@@ -41,11 +44,12 @@ it keeps the console open and saves a `setup-*.log` in the app folder.
 
 For manual setup:
 
-Install Python 3.11 or newer and FFmpeg (including ffprobe). Both must be available on PATH. From this repository folder:
+Install Python 3.11–3.13, Node.js 22+ and FFmpeg (including ffprobe), available on PATH. From this repository folder:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+npm.cmd --prefix caption_renderer install --omit=dev --no-audit --no-fund
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -55,11 +59,12 @@ Model weights and fonts download on first use. Transcription and rendering then 
 
 ## Run on macOS or Linux
 
-With Python and FFmpeg installed:
+With Python 3.11–3.13, Node.js 22+ and FFmpeg installed:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
+npm --prefix caption_renderer install --omit=dev --no-audit --no-fund
 .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -78,9 +83,25 @@ On Windows PowerShell, set `$env:GOOS="windows"`, `$env:GOARCH="amd64"`, and
 environment-variable prefixes. Generated payload ZIP/checksum and EXE files are
 build outputs, not source files to commit.
 
+## Verify captions
+
+After installing the renderer and Python dependencies:
+
+```bash
+node --expose-gc tests/canvas-captions.mjs
+python tests/test_caption_catalog.py
+```
+
+The tests check the 85 added Canvas styles in portrait/landscape, palettes,
+Premium/multiline counts, gap clearing, edge positioning, multilingual rendering,
+the full 104-style API catalog, all 19 legacy ASS presets and reframe recipes.
+Real sample exports with captions, background blur and audio were also checked
+on Linux. Windows installation itself has not been tested here.
+
 ## Edit the dashboard
 
-The repository includes a built dashboard in `web/dist`, so Node.js is only needed to change/rebuild the frontend.
+The repository includes a built dashboard in `web/dist`. Node.js is also used
+by the transparent Canvas caption export renderer.
 
 ```bash
 cd web
@@ -93,13 +114,24 @@ For frontend development, run the backend and `npm run dev` in separate terminal
 ## Repository contents
 
 - `app/`: Python backend and video pipeline.
+- `caption_renderer/`: shared preview/export renderer and 85 additional presets.
+- `assets/fonts/`: bundled fonts for the additional styles.
 - `web/src/`: React dashboard source.
 - `web/public/assets/`: approved logo and icons.
 - `web/dist/`: production dashboard.
 - `static/`: legacy fallback dashboard.
 - `docs/`: logo and app screenshot.
 
-Personal videos, generated clips, transcripts, music uploads, downloaded fonts/models, and bundled Python/FFmpeg runtimes are excluded. They are created or supplied locally.
+Personal videos, generated clips, transcripts, music uploads, additional downloaded
+fonts/models, and Python/FFmpeg/Node runtimes are created or supplied locally.
+When updating an existing installation, finish exports and use **Stop
+BMG.CLIP-V3 Preview** before running Setup, then launch the new shortcut.
+Closing the browser alone does not stop the old backend.
+
+The standalone caption-library navigation and landing browse button remain
+hidden. All caption styles, customization, saved presets and transcript controls
+remain available in the editor. Source/license notices stay in project files;
+the visible interface uses BMG.CLIP-V3 branding only.
 
 ## Project provenance
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { captionLineStyle, captionSample, CINE_GRADE_CSS } from "../caption.js";
+import NativeCaptionCanvas from "./NativeCaptionCanvas.jsx";
 
 // Clip region inside the 19.5:9 iPhone screen (matches the burned canvas), as
 // % of the SCREEN. 9:16 fills the width with thin bands; 16:9 is a centre strip;
@@ -52,7 +53,7 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
-export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, backgroundBlur = false, blurStrength = 50, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef }) {
+export default function PhonePreview({ cfg, overrides, cinematic, language, media, preparing, aspect, fit, backgroundBlur = false, blurStrength = 50, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef }) {
   const screenRef = useRef(null);
   const dragCleanupRef = useRef(null);
   const [dragging, setDragging] = useState(false);
@@ -198,12 +199,16 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
           </div>
         )}
 
-        <div className={"cap-preview" + (dragging ? " dragging" : "")}
+        {cfg.engine === "canvas" ? <div className={"native-caption-layer" + (dragging ? " dragging" : "")}
+          onPointerDown={onDown} title="Drag to position captions" aria-label="Drag to position captions"
+          style={{ position: "absolute", left: 0, width: "100%", top: captionReg.top + "%", height: captionReg.height + "%", cursor: dragging ? "grabbing" : "grab", touchAction: "none" }}>
+          <NativeCaptionCanvas cfg={cfg} overrides={overrides} language={language} landscape={fit !== "square" && aspect === "16:9"} />
+        </div> : <div className={"cap-preview" + (dragging ? " dragging" : "")}
           style={{ left: x + "%", top: y + "%", transform: `translate(-50%, ${squareBelow ? "0" : "-50%"})`, right: "auto", bottom: "auto", maxWidth: "92%" }}>
           <span className="cap-line-wrap" onPointerDown={onDown} title="Drag to position captions" aria-label="Drag to position captions">
             <CaptionLine cfg={cfg} language={language} fontPx={fontPx} scale={0.16} />
           </span>
-        </div>
+        </div>}
 
         {signature?.enabled && (signature.text || "").trim() && (
           <div className="sig-preview" onMouseDown={sigDown}

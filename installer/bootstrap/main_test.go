@@ -36,7 +36,7 @@ func TestEmbeddedPayload(t *testing.T) {
 	if err := extract(payload, root); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"app/main.py", "app/clipper.py", "Setup.ps1", "web/dist/index.html"} {
+for _, name := range []string{"app/main.py", "app/clipper.py", "Setup.ps1", "web/dist/index.html", "app/canvas_captions.py", "caption_renderer/driver.mjs", "caption_renderer/engine.mjs", "caption_renderer/catalog.json", "assets/fonts/Inter.ttf"} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(name))); err != nil {
 			t.Fatal(name, err)
 		}

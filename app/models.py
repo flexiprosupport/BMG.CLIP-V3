@@ -8,7 +8,7 @@ single, easy-to-audit place.
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -95,6 +95,11 @@ class CaptionOverrides(BaseModel):
     Colours are CSS hex (#RRGGBB).
     """
 
+    native_palette: Optional[Literal["original", "classic", "mono", "mint", "coral", "cyan", "alert", "magenta", "cream", "ink"]] = None
+    native_motion: Optional[str] = Field(default=None, max_length=40)
+    native_pacing: Optional[Literal["chunk", "word"]] = None
+    native_max_width: Optional[float] = Field(default=None, ge=20, le=100)
+    background_radius: Optional[float] = Field(default=None, ge=0, le=40)
     pos_x: Optional[float] = Field(
         default=None, ge=0, le=100,
         description="Horizontal centre of the caption, as % of frame width.",

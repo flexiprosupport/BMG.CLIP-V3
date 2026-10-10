@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 
 // The FastAPI backend runs on 127.0.0.1:8000. Proxy the API + asset routes so the
 // React dev server (5173) can call them same-origin (no CORS, real SSE streaming).
@@ -9,6 +10,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    fs: { allow: [
+      fileURLToPath(new URL(".", import.meta.url)),
+      fileURLToPath(new URL("../caption_renderer", import.meta.url)),
+    ] },
     proxy: {
       "/api": { target: backend, changeOrigin: true },
       "/clips": { target: backend, changeOrigin: true },

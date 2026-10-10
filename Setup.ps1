@@ -20,7 +20,15 @@ function Confirm-Action([string]$Message) {
 function Refresh-Path {
     $machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $user = [Environment]::GetEnvironmentVariable("Path", "User")
-    $env:Path = (@("$Root\ffmpeg", "$Root\python", $machine, $user, $env:Path) -join ";")
+    $env:Path = (@("$Root\ffmpeg", "$Root\python", "$env:ProgramFiles\nodejs", $machine, $user, $env:Path) -join ";")
+}
+
+function Find-Node {
+    $command = Get-Command node.exe -ErrorAction SilentlyContinue
+    if (-not $command) { return $null }
+    $version = & $command.Source -p "Number(process.versions.node.split('.')[0])" 2>$null
+    if ($LASTEXITCODE -eq 0 -and [int]$version -ge 22) { return $command.Source }
+    return $null
 }
 
 function Test-Python([string]$Path) {
@@ -107,7 +115,7 @@ try {
     Start-Transcript -Path $log | Out-Null
     $logStarted = $true
     Write-Host "App folder: $Root"
-    Write-Host "Setup creates a local Python environment, downloads Python packages, and adds desktop shortcuts."
+    Write-Host "Setup installs Python and Node caption packages and adds desktop shortcuts."
     Write-Host "It does not delete your videos, models, existing apps, or shortcuts."
     Write-Host "Internet access is required. First setup can take several minutes."
     if (-not $InstallerMode -and -not $BootstrapMode -and -not (Confirm-Action "Continue with setup?")) {
@@ -139,6 +147,15 @@ try {
     }
     Invoke-Checked $venvPython @("-m", "pip", "install", "-r", (Join-Path $Root "requirements.txt"))
     Invoke-Checked $venvPython @("-c", "import fastapi, uvicorn, pydantic, yt_dlp, requests, faster_whisper, indic_transliteration")
+    if (-not (Find-Node)) { Install-Prerequisite "OpenJS.NodeJS.LTS" "Node.js 22+ for caption rendering"; Refresh-Path }
+    $node = Find-Node
+    if (-not $node) { throw "Node.js 22+ was not detected. Close this window and run Setup.cmd again." }
+    $npm = Join-Path (Split-Path $node -Parent) "npm.cmd"
+    if (-not (Test-Path -LiteralPath $npm)) { throw "npm.cmd is missing. Repair the Node.js LTS installation." }
+    Invoke-Checked $npm @("--prefix", (Join-Path $Root "caption_renderer"), "install", "--omit=dev", "--no-audit", "--no-fund")
+    Push-Location (Join-Path $Root "caption_renderer")
+    try { Invoke-Checked $node @("--input-type=module", "-e", "import {createCanvas} from '@napi-rs/canvas'; import {templates} from './engine.mjs'; if(templates.length !== 85 || createCanvas(8,8).data().length !== 256) throw Error('Caption renderer check failed');") }
+    finally { Pop-Location }
     if (-not $InstallerMode) {
         Add-DesktopShortcut "BMG.CLIP-V3 Preview" "BMG.CLIP-V3.vbs"
         Add-DesktopShortcut "Stop BMG.CLIP-V3 Preview" "Stop BMG.CLIP-V3.vbs"

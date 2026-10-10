@@ -11,7 +11,7 @@ if (-not $Root) { $Root = (Get-Location).Path }
 
 $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-$env:PATH = "$Root\ffmpeg;$Root\python;$machinePath;$userPath;$env:PATH"
+$env:PATH = "$Root\ffmpeg;$Root\python;$env:ProgramFiles\nodejs;$machinePath;$userPath;$env:PATH"
 $env:HF_HOME = "$Root\models"
 $env:HF_HUB_DISABLE_TELEMETRY = "1"
 

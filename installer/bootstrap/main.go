@@ -181,9 +181,10 @@ func install(reader *bufio.Reader) error {
 	}
 	destination := filepath.Join(local, "Programs", "BMG.CLIP-V3-Preview")
 	fmt.Println("BMG.CLIP-V3 Windows Setup - Preview")
-	fmt.Println("Includes the updated app: blur-strength control and free caption dragging.")
+	fmt.Println("Includes 104 caption styles, background-blur intensity, and free caption dragging.")
 	fmt.Println("This is an unsigned online installer. Internet access is required for packages.")
-	fmt.Println("Missing Python and FFmpeg will require separate confirmation.")
+	fmt.Println("Missing Python, FFmpeg and Node.js will require separate confirmation.")
+	fmt.Println("Before updating, finish any exports and use the Stop BMG.CLIP-V3 Preview shortcut.")
 	fmt.Println("Your existing videos and models will not be deleted.")
 	fmt.Printf("\nInstallation folder: %s\n", destination)
 	if _, err := os.Lstat(destination); err == nil {

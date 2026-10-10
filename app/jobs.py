@@ -19,7 +19,7 @@ import time
 import uuid
 from typing import Dict, List, Optional
 
-from . import captions, downloader, history, music, pretranscribe, reframe, selector, transcriber, uploads
+from . import captions, canvas_captions, downloader, history, music, pretranscribe, reframe, selector, transcriber, uploads
 from .clipper import ClipOptions, generate_clip, target_size
 from .downloader import DownloadCancelled
 from .models import (
@@ -327,7 +327,7 @@ def _run_pipeline(job: Job) -> None:
         # must match the actual output frame (1:1 in square mode, aspect otherwise).
         words = transcript.get("words") or []
         caption_overrides = (
-            req.caption_overrides.model_dump() if req.caption_overrides else None
+            req.caption_overrides.model_dump(exclude_none=True) if req.caption_overrides else None
         )
         cinematic = req.cinematic.model_dump() if req.cinematic else None
         # Resolve the background-music track once (None if unset / missing).
@@ -386,6 +386,12 @@ def _run_pipeline(job: Job) -> None:
                 music_start=req.music_start if req.music_start is not None else 0.0,
                 signature=req.signature.model_dump() if req.signature else None,
             )
+            if captions.get_preset(req.caption_style).get("engine") == "canvas":
+                opts.caption_recipe = canvas_captions.write_recipe(
+                    clip_dir / f"{index}.captions.json", style=req.caption_style,
+                    words=clip_words, start=start, end=end, overrides=caption_overrides,
+                    language=caption_language,
+                )
             generate_clip(source_mp4, start, end, opts, cancelled=lambda: job.cancelled)
             if job.cancelled:
                 return
@@ -400,6 +406,7 @@ def _run_pipeline(job: Job) -> None:
                     "background_blur": opts.background_blur,
                     "square_corners": opts.square_corners,
                     "ass_path": opts.ass_path,
+                    "caption_recipe": opts.caption_recipe,
                     "bar_text": opts.bar_text,
                     "bar_text_color": opts.bar_text_color,
                     "bar_text_anim": opts.bar_text_anim,

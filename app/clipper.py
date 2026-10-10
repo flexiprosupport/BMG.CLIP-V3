@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import effects
+from . import effects, canvas_captions
 from .models import AspectRatio, ClipGenerationError, FitMode
 from .paths import CLIPS_DIR, FONTS_DIR, MASKS_DIR
 
@@ -122,6 +122,8 @@ class ClipOptions:
     music_start: float = 0.0           # seconds into the track to start from (beat-aligned)
     signature: Optional[dict] = None   # burned-in watermark (see app.models.Signature)
     reframe: Optional[list[dict]] = None  # manual crop keyframes (see app.models.ReframeKeyframe)
+    caption_recipe: Optional[Path] = None
+    caption_layer: Optional[Path] = None
 
 
 def _rel_for_filter(target: Path, start_dir: Path) -> str:
@@ -158,6 +160,11 @@ def _ass_filter(opts: ClipOptions, work_dir: Path) -> str:
 
 def _caption_stage(in_label: str, opts: ClipOptions, work_dir: Path) -> str:
     """The final stage that burns the captions onto ``in_label`` -> ``[outv]``."""
+    if opts.caption_layer:
+        return (
+            f"movie={_rel_for_filter(opts.caption_layer, work_dir)}[nativecaps];"
+            f"[{in_label}][nativecaps]overlay=eof_action=pass:format=auto[outv]"
+        )
     return f"[{in_label}]{_ass_filter(opts, work_dir)}[outv]"
 
 
@@ -462,6 +469,16 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions,
     temp_path = out_dir / f"{opts.index}.tmp.{uuid.uuid4().hex[:8]}.mp4"
 
     src = str(Path(source_mp4).resolve())
+
+    if opts.caption_recipe:
+        width, height = target_size(opts.aspect_ratio, opts.fit_mode)
+        layer = canvas_captions.render_layer(
+            Path(opts.caption_recipe), out_dir / f"{opts.index}.captions.mov",
+            width, height, cancelled=cancelled,
+        )
+        if layer is None:
+            return out_path
+        opts.caption_layer = layer
 
     has_music = opts.music_path is not None and Path(opts.music_path).is_file()
 

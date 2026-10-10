@@ -110,7 +110,11 @@ LANG_DEFAULT_FONT: dict[str, str] = {
 }
 
 # Always-offered core families -> their file (so the UI can @font-face them too).
-_CORE_FAMILY_FILES = {"Roboto": "Roboto-Regular.ttf"}
+_CORE_FAMILY_FILES = {
+    "Roboto": "Roboto-Regular.ttf", "Inter": "Inter.ttf",
+    "Caveat": "Caveat.ttf", "JetBrains Mono": "JetBrainsMono.ttf",
+    "Playfair Display": "PlayfairDisplay.ttf",
+}
 
 ALLOWED_FONT_EXTS = {".ttf", ".otf"}
 _USER_REGISTRY = FONTS_DIR / "user_fonts.json"

@@ -15,6 +15,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import List
+import json
+
+from .paths import ROOT_DIR
 
 # --------------------------------------------------------------------------- #
 # Style presets — defined ONCE, used for both ASS rendering and the UI preview.
@@ -112,6 +115,10 @@ STYLE_PRESETS: dict[str, dict] = {
 
 DEFAULT_PRESET = "bold_white"
 
+# Namespace new styles; all existing IDs and saved presets remain valid.
+for _preset in json.loads((ROOT_DIR / "caption_renderer" / "catalog.json").read_text(encoding="utf-8")):
+    STYLE_PRESETS[_preset["id"]] = {**_BASE_PRESET, **_preset}
+
 
 # --------------------------------------------------------------------------- #
 # API helper
@@ -132,6 +139,8 @@ def get_presets_for_api() -> List[dict]:
                 "outline_color": p["outline_color"],
                 "outline": p["outline"],
                 "shadow": p["shadow"],
+                "shadow_enabled": p.get("shadow_enabled", p["shadow"] > 0),
+                "glow_enabled": p.get("glow_enabled", False),
                 "position": p["position"],
                 "karaoke": p["karaoke"],
                 "uppercase": p["uppercase"],
@@ -143,7 +152,13 @@ def get_presets_for_api() -> List[dict]:
                 "max_chars": p.get("max_chars", 22),
                 "background_enabled": p.get("background_enabled", False),
                 "background_color": p.get("background_color", "#000000"),
+                "background_opacity": p.get("background_opacity", 100),
                 "trending": p.get("trending", False),
+                "engine": p.get("engine", "ass"),
+                "category": p.get("category", "Original"),
+                "multicolour": p.get("multicolour", False),
+                "pos_x": p.get("pos_x"),
+                "pos_y": p.get("pos_y"),
             }
         )
     return out

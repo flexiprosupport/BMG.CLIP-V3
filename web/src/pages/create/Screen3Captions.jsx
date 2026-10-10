@@ -5,18 +5,20 @@ import PhonePreview from "../../components/PhonePreview.jsx";
 import Transcript from "../../components/Transcript.jsx";
 import { Icons } from "../../components/Icons.jsx";
 import BackgroundBlurControl from "../../components/BackgroundBlurControl.jsx";
+import NativeCaptionCanvas from "../../components/NativeCaptionCanvas.jsx";
 
-function Chip({ label, cfg, active, trending, custom, onClick, onDelete }) {
+function Chip({ label, cfg, overrides, active, trending, custom, onClick, onDelete }) {
   const words = (label || "Aa").split(/\s+/).slice(0, 2);
   const style = captionLineStyle(cfg, { fontPx: 16, scale: 0.16 });
   const hl = (cfg.animation === "highlight" || cfg.karaoke) ? words.length - 1 : -1;
   return (
     <button type="button" className={"chip" + (active ? " active" : "")} onClick={onClick}>
-      {custom ? <span className="tag custom">Custom</span> : trending ? <span className="tag">Trending</span> : null}
+      {custom ? <span className="tag custom">Custom</span> : trending ? <span className="tag">Trending</span> :
+        ["Premium","Multiline"].includes(cfg.category) ? <span className="tag">{cfg.category}</span> : null}
       {custom && <span className="chip-del" onClick={(e) => { e.stopPropagation(); onDelete(); }}>✕</span>}
-      <span className="stage"><span className="sample" style={style}>
+      <span className="stage">{cfg.engine === "canvas" ? <NativeCaptionCanvas cfg={cfg} overrides={overrides} thumbnail /> : <span className="sample" style={style}>
         {words.map((w, i) => <span key={i} style={{ color: i === hl ? (cfg.highlight_color || "#FFD400") : undefined }}>{w} </span>)}
-      </span></span>
+      </span>}</span>
       <span className="name">{label}</span>
     </button>
   );
@@ -48,15 +50,17 @@ export default function Screen3Captions({
   const [tab, setTab] = useState("themes");
   const [saveOpen, setSaveOpen] = useState(false);
   const s = studio;
-  const trending = s.presets.filter((p) => p.trending);
-  const standard = s.presets.filter((p) => !p.trending);
+  const filter = s.galleryFilter || "all";
+  const visible = s.presets.filter(p => filter === "all" || (filter === "Multicolour" ? p.multicolour : p.category === filter || filter === "Original" && !p.engine));
+  const trending = visible.filter((p) => p.trending);
+  const standard = visible.filter((p) => !p.trending);
   const activeSavedPreset = s.userPresets.find((up) => up.id === s.activeKey);
 
   return (
     <div className="wizard-screen">
       <div className="w3-grid">
         <div className="card w3-left">
-          <div className="card-h"><h2>Edit captions</h2></div>
+          <div className="card-h"><h2>Edit captions</h2><span className="note">{s.presets.length} styles — including Premium &amp; Multiline</span></div>
           <div className="studio-tabs">
             <button className={"studio-tab" + (tab === "themes" ? " active" : "")} onClick={() => setTab("themes")}><Icons.library /><span className="studio-tab-lbl">Themes</span></button>
             <button className={"studio-tab" + (tab === "style" ? " active" : "")} onClick={() => setTab("style")}><Icons.create /><span className="studio-tab-lbl">Customize</span></button>
@@ -66,6 +70,13 @@ export default function Screen3Captions({
 
           {tab === "themes" && (
             <div className="studio-pane">
+              <div className="style-head">
+                <label className="eyebrow">Caption styles</label>
+                <select aria-label="Filter caption styles" value={filter} onChange={e => s.setGalleryFilter(e.target.value)}>
+                  {["all","Premium","Multiline","Multicolour","Original"].map(group =>
+                    <option key={group} value={group}>{group === "all" ? "All styles" : group}</option>)}
+                </select>
+              </div>
               <div className="chips">
                 {trending.map((p) => <Chip key={p.id} label={p.label} trending cfg={p} active={s.activeKey === p.id} onClick={() => s.selectPreset(p.id)} />)}
                 {standard.map((p) => <Chip key={p.id} label={p.label} cfg={p} active={s.activeKey === p.id} onClick={() => s.selectPreset(p.id)} />)}
@@ -112,6 +123,7 @@ export default function Screen3Captions({
                 {s.userPresets.map((up) => (
                   <Chip key={up.id} label={up.label} custom active={s.activeKey === up.id}
                     cfg={effectiveCfg(s.presets, up.base, up.overrides)}
+                    overrides={up.overrides}
                     onClick={() => s.selectUserPreset(up)} onDelete={() => s.removeUserPreset(up.id)} />
                 ))}
                 {!s.userPresets.length && (
