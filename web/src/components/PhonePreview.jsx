@@ -91,21 +91,31 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
   const y = squareBelow ? (reg.top + reg.height + 2) : (reg.top + yFrac * reg.height);
 
   function onDown(e) {
+    if (!setOverride) return;
     e.preventDefault();
     setDragging(true);
+    const pointerId = e.pointerId;
     const move = (ev) => {
-      const r = screenRef.current.getBoundingClientRect();
-      const p = ev.touches ? ev.touches[0] : ev;
-      let px = ((p.clientX - r.left) / r.width) * 100;
-      let py = (((p.clientY - r.top) / r.height) * 100 - reg.top) / reg.height * 100;
-      px = Math.max(4, Math.min(96, px)); py = Math.max(2, Math.min(98, py));
-      const snap = (v, ts, th) => { for (const t of ts) if (Math.abs(v - t) < th) return t; return v; };
-      px = snap(px, [50], 4.5); py = snap(py, [12, 50, 88], 5.5);
+      if (ev.pointerId !== pointerId) return;
+      const r = screenRef.current?.getBoundingClientRect();
+      if (!r) return;
+      let px = ((ev.clientX - r.left) / r.width) * 100;
+      let py = (((ev.clientY - r.top) / r.height) * 100 - reg.top) / reg.height * 100;
+      px = Math.max(2, Math.min(98, px));
+      py = Math.max(0, Math.min(100, py));
       setOverride("pos_x", Math.round(px * 10) / 10);
       setOverride("pos_y", Math.round(py * 10) / 10);
     };
-    const up = () => { setDragging(false); document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
-    document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+    const up = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      setDragging(false);
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", up);
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", up);
   }
 
   const c = cinematic;
@@ -131,7 +141,12 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
         )}
 
         <div className="media-box" style={{ ...reg.box, filter: mediaFilter }}>
-          {media?.kind === "video" && <video ref={videoRef} src={media.src} muted loop autoPlay playsInline />}
+          {media?.kind === "video" && fit === "blur" && (
+            <video className="media-blur-backdrop" src={media.src} muted loop autoPlay playsInline aria-hidden="true" tabIndex={-1} />
+          )}
+          {media?.kind === "video" && (
+            <video ref={videoRef} className={fit === "blur" ? "media-blur-foreground" : undefined} src={media.src} muted loop autoPlay playsInline />
+          )}
           {(!media || media.kind === "unknown") && (
             <div className="media-ph">
               {preparing
@@ -163,7 +178,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
 
         <div className={"cap-preview" + (dragging ? " dragging" : "")}
           style={{ left: x + "%", top: y + "%", transform: `translate(-50%, ${squareBelow ? "0" : "-50%"})`, right: "auto", bottom: "auto", maxWidth: "92%" }}>
-          <span className="cap-line-wrap" onMouseDown={onDown} onTouchStart={onDown}>
+          <span className="cap-line-wrap" onPointerDown={onDown} title="Drag to position captions" aria-label="Drag to position captions">
             <CaptionLine cfg={cfg} language={language} fontPx={fontPx} scale={0.16} />
           </span>
         </div>
