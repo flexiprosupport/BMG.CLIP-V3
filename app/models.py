@@ -286,6 +286,10 @@ class GenerateRequest(BaseModel):
     )
     aspect_ratio: AspectRatio = AspectRatio.NINE_16
     fit_mode: FitMode = FitMode.CROP
+    blur_strength: float = Field(
+        default=50, ge=0, le=100,
+        description="Background blur strength from 0 to 100 (blur fit mode only).",
+    )
     square_corners: SquareCorners = Field(
         default=SquareCorners.ROUND,
         description="Corner style of the centered square (square fit mode only).",

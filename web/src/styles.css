@@ -460,7 +460,7 @@ select { appearance: none; cursor: pointer;
 }
 .media-box { position: absolute; overflow: hidden; border-radius: 6px; }
 .media-box video, .media-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; display: block; background: #000; }
-.media-box .media-blur-backdrop { inset: -8%; width: 116%; height: 116%; object-fit: cover; filter: blur(11px) brightness(.72); transform: scale(1.08); z-index: 0; pointer-events: none; }
+.media-box .media-blur-backdrop { inset: -8%; width: 116%; height: 116%; object-fit: cover; transform: scale(1.08); z-index: 0; pointer-events: none; }
 .media-box .media-blur-foreground { z-index: 1; object-fit: contain; background: transparent; }
 .media-box .ov { position: absolute; pointer-events: none; z-index: 2; }
 .media-ph { position: absolute; inset: 0; display: grid; place-items: center; padding: 18px; text-align: center; color: var(--muted-2); font-size: 11.5px; line-height: 1.5; }

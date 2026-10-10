@@ -11,6 +11,7 @@ const ASPECTS = [["9:16", "9:16 Vertical"], ["16:9", "16:9 Landscape"], ["1:1", 
 // consistent across the whole wizard.
 export default function Screen2Settings({
   media, sourceReady, prepView, outputAspect, setOutputAspect, setFit,
+  blurStrength, setBlurStrength,
   squareCorners, setSquareCorners, barText, setBarText, barTextColor, setBarTextColor,
   barTextAnim, setBarTextAnim, language, changeLanguage, device, setDevice, devices,
   numClips, setNumClips, clipLen, setClipLen,
@@ -38,7 +39,14 @@ export default function Screen2Settings({
                   <button key={mode} className={fit === mode ? "active" : ""} onClick={() => setFit(mode)}>{label}</button>
                 ))}
               </div>
-              {fit === "blur" && <div className="note">Keeps the full video visible over a blurred background.</div>}
+              {fit === "blur" && (
+                <>
+                  <div className="note">Keeps the full video visible over a blurred background.</div>
+                  <label className="fieldlabel" htmlFor="background-blur-strength">Blur strength — {blurStrength}%</label>
+                  <input id="background-blur-strength" type="range" min="0" max="100" step="1"
+                    value={blurStrength} onChange={(e) => setBlurStrength(Number(e.target.value))} />
+                </>
+              )}
             </>
           )}
 
@@ -112,7 +120,7 @@ export default function Screen2Settings({
 
         <div className="w3-right">
           <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
-            preparing={!media && sourceReady} aspect={aspect} fit={fit} barText={barText}
+            preparing={!media && sourceReady} aspect={aspect} fit={fit} blurStrength={blurStrength} barText={barText}
             barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
             overrides={studio.overrides} setOverride={studio.setOverride} />

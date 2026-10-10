@@ -109,6 +109,7 @@ class ClipOptions:
     ass_path: Path
     clip_id: str
     index: int
+    blur_strength: float = 50.0        # 0-100, blur fit mode only
     square_corners: str = "round"      # "round" | "square" — square fit mode only
     bar_text: Optional[str] = None
     bar_text_color: str = "#FFFFFF"     # square title colour
@@ -311,9 +312,10 @@ def _build_blur_filter_complex(width: int, height: int, opts: ClipOptions, work_
     yf = _pos_frac_expr(opts.reframe, "pos_y") or "0.5"
     zoom = _zoom_expr(opts.reframe) or "1"
     scale = f"min({width}/iw\\,{height}/ih)"
+    sigma = max(0.0, min(100.0, float(opts.blur_strength))) * 0.48
     stages = [
         "[0:v]split=2[bgsrc][fgsrc]",
-        f"[bgsrc]scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},gblur=sigma=24:steps=2[bg]",
+        f"[bgsrc]scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},gblur=sigma={sigma:.2f}:steps=2[bg]",
         f"[fgsrc]scale=w='2*round(iw*{scale}*{zoom}/2)':h='2*round(ih*{scale}*{zoom}/2)':eval=frame[fg]",
         f"[bg][fg]overlay=x='(W-w)/2-max(0\\,w-W)*({xf}-0.5)':y='(H-h)/2-max(0\\,h-H)*({yf}-0.5)':shortest=1,setsar=1[v0]",
     ]

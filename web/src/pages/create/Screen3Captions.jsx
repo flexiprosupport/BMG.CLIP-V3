@@ -24,7 +24,7 @@ function SaveBlock({ s, open, setOpen }) {
 // available in its own tab.
 export default function Screen3Captions({
   studio, language, onFontUpload, media, prepView, sourceReady,
-  transcript, curTime, seekTo, videoRef, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig,
+  transcript, curTime, seekTo, videoRef, aspect, fit, blurStrength, barText, barTextColor, barTextAnim, signature, setSig,
   onBack, onNext,
 }) {
   const [tab, setTab] = useState("style");
@@ -79,7 +79,7 @@ export default function Screen3Captions({
 
         <div className="w3-right">
           <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
-            preparing={!media && sourceReady} aspect={aspect} fit={fit} barText={barText}
+            preparing={!media && sourceReady} aspect={aspect} fit={fit} blurStrength={blurStrength} barText={barText}
             barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
             overrides={studio.overrides} setOverride={studio.setOverride} />

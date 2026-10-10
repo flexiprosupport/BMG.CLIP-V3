@@ -52,11 +52,15 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
-export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef }) {
+export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, blurStrength = 50, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef }) {
   const screenRef = useRef(null);
+  const dragCleanupRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [screenW, setScreenW] = useState(224);
   const reg = regions(aspect, fit);
+  const blurPx = Math.max(0, Math.min(100, blurStrength)) * 0.48 * screenW / (aspect === "16:9" ? 1920 : 1080);
+
+  useEffect(() => () => { dragCleanupRef.current?.(); }, []);
 
   // Measure the screen width so the signature's px size scales like the render.
   useEffect(() => {
@@ -91,28 +95,38 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
   const y = squareBelow ? (reg.top + reg.height + 2) : (reg.top + yFrac * reg.height);
 
   function onDown(e) {
-    if (!setOverride) return;
+    if (!setOverride || e.isPrimary === false || (e.button != null && e.button !== 0)) return;
+    const initialRect = screenRef.current?.getBoundingClientRect();
+    if (!initialRect) return;
+    dragCleanupRef.current?.();
     e.preventDefault();
     setDragging(true);
     const pointerId = e.pointerId;
+    const offsetX = ((e.clientX - initialRect.left) / initialRect.width) * 100 - x;
+    const offsetY = ((e.clientY - initialRect.top) / initialRect.height) * 100 - y;
     const move = (ev) => {
       if (ev.pointerId !== pointerId) return;
       const r = screenRef.current?.getBoundingClientRect();
       if (!r) return;
-      let px = ((ev.clientX - r.left) / r.width) * 100;
-      let py = (((ev.clientY - r.top) / r.height) * 100 - reg.top) / reg.height * 100;
-      px = Math.max(2, Math.min(98, px));
+      let px = ((ev.clientX - r.left) / r.width) * 100 - offsetX;
+      let py = (((ev.clientY - r.top) / r.height) * 100 - offsetY - reg.top) / reg.height * 100;
+      px = Math.max(0, Math.min(100, px));
       py = Math.max(0, Math.min(100, py));
       setOverride("pos_x", Math.round(px * 10) / 10);
       setOverride("pos_y", Math.round(py * 10) / 10);
     };
-    const up = (ev) => {
-      if (ev.pointerId !== pointerId) return;
-      setDragging(false);
+    const cleanup = () => {
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", up);
       document.removeEventListener("pointercancel", up);
+      dragCleanupRef.current = null;
     };
+    const up = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      setDragging(false);
+      cleanup();
+    };
+    dragCleanupRef.current = cleanup;
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", up);
     document.addEventListener("pointercancel", up);
@@ -142,7 +156,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
 
         <div className="media-box" style={{ ...reg.box, filter: mediaFilter }}>
           {media?.kind === "video" && fit === "blur" && (
-            <video className="media-blur-backdrop" src={media.src} muted loop autoPlay playsInline aria-hidden="true" tabIndex={-1} />
+            <video className="media-blur-backdrop" style={{ filter: "blur(" + blurPx + "px)" }} src={media.src} muted loop autoPlay playsInline aria-hidden="true" tabIndex={-1} />
           )}
           {media?.kind === "video" && (
             <video ref={videoRef} className={fit === "blur" ? "media-blur-foreground" : undefined} src={media.src} muted loop autoPlay playsInline />

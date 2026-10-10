@@ -370,6 +370,7 @@ def _run_pipeline(job: Job) -> None:
             opts = ClipOptions(
                 aspect_ratio=req.aspect_ratio,
                 fit_mode=req.fit_mode,
+                blur_strength=req.blur_strength,
                 square_corners=req.square_corners.value,
                 ass_path=ass_path,
                 clip_id=clip_id,
@@ -394,6 +395,7 @@ def _run_pipeline(job: Job) -> None:
                 opts_kwargs={
                     "aspect_ratio": opts.aspect_ratio,
                     "fit_mode": opts.fit_mode,
+                    "blur_strength": opts.blur_strength,
                     "square_corners": opts.square_corners,
                     "ass_path": opts.ass_path,
                     "bar_text": opts.bar_text,
@@ -436,6 +438,7 @@ def _run_pipeline(job: Job) -> None:
                     settings={
                         "aspect_ratio": req.aspect_ratio.value,
                         "fit_mode": req.fit_mode.value,
+                        "blur_strength": req.blur_strength,
                         "caption_style": req.caption_style,
                         "num_clips": req.num_clips,
                         "language": caption_language,
