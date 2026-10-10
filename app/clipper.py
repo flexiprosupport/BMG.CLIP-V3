@@ -4,7 +4,8 @@ Each clip is re-encoded (libx264 + aac) so cuts are frame-accurate and the ASS
 captions are burned into the pixels.
 
 ``crop`` scales to *cover* the chosen aspect ratio (9:16 / 16:9) and center-crops
-to fill it. ``square`` renders a 9:16 canvas with the source cropped to a 1:1
+to fill it. ``blur`` preserves the whole source over a blurred, cover-scaled
+backdrop. ``square`` renders a 9:16 canvas with the source cropped to a 1:1
 square, given **soft rounded corners**, and centered on black — with an optional
 title drawn above it (the "rounded square reel" look). The aspect ratio is
 ignored in square mode (the canvas is always 9:16).
@@ -304,6 +305,21 @@ def _build_crop_filter_complex(width: int, height: int, opts: ClipOptions, work_
     return ";".join(stages)
 
 
+def _build_blur_filter_complex(width: int, height: int, opts: ClipOptions, work_dir: Path) -> str:
+    """Fit the full source over a blurred fill while retaining reframe keyframes."""
+    xf = _pos_frac_expr(opts.reframe, "pos_x") or "0.5"
+    yf = _pos_frac_expr(opts.reframe, "pos_y") or "0.5"
+    zoom = _zoom_expr(opts.reframe) or "1"
+    scale = f"min({width}/iw\\,{height}/ih)"
+    stages = [
+        "[0:v]split=2[bgsrc][fgsrc]",
+        f"[bgsrc]scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},gblur=sigma=24:steps=2[bg]",
+        f"[fgsrc]scale=w='2*round(iw*{scale}*{zoom}/2)':h='2*round(ih*{scale}*{zoom}/2)':eval=frame[fg]",
+        f"[bg][fg]overlay=x='(W-w)/2-max(0\\,w-W)*({xf}-0.5)':y='(H-h)/2-max(0\\,h-H)*({yf}-0.5)':shortest=1,setsar=1[v0]",
+    ]
+    stages += _finish_stages("v0", width, height, opts, work_dir)
+    return ";".join(stages)
+
 def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
     """-filter_complex graph for square mode.
 
@@ -453,7 +469,11 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions,
         tail = ["-shortest"]
     else:
         width, height = target_size(opts.aspect_ratio, opts.fit_mode)
-        fc = _build_crop_filter_complex(width, height, opts, out_dir)
+        fc = (
+            _build_blur_filter_complex(width, height, opts, out_dir)
+            if opts.fit_mode == FitMode.BLUR
+            else _build_crop_filter_complex(width, height, opts, out_dir)
+        )
         inputs = ["-ss", f"{start:.3f}", "-i", src]
         music_idx = 1  # 0 = source
         tail = []
