@@ -4,16 +4,20 @@ import { Icons } from "./components/Icons.jsx";
 import Create from "./pages/Create.jsx";
 import Library from "./pages/Library.jsx";
 import Settings from "./pages/Settings.jsx";
+import Processing from "./pages/Processing.jsx";
+import { useProcessing } from "./useProcessing.js";
 
 const NAV = [
   { id: "create", label: "Create", icon: Icons.create },
   { id: "library", label: "Library", icon: Icons.library },
+  { id: "processing", label: "Processing", icon: Icons.processing },
   { id: "settings", label: "Settings", icon: Icons.settings },
 ];
 
 const TITLES = {
   create: { h: "Create clips", sub: "Turn any video into captioned vertical shorts" },
   library: { h: "Library", sub: "Every clip you've generated" },
+  processing: { h: "Processing", sub: "Background jobs, batches & live progress" },
   settings: { h: "Settings", sub: "Compute device & environment" },
 };
 
@@ -68,6 +72,8 @@ function ThemeSwitch({ theme, setTheme, fixed }) {
 }
 
 export default function App() {
+  const processing=useProcessing();
+  const [libraryFocus,setLibraryFocus]=useState(null);
   const [page, setPage] = useState("create");
   const [step, setStep] = useState(1);
   const [device, setDevice] = useState(null);
@@ -131,15 +137,6 @@ export default function App() {
 
   const go = (id) => { setPage(id); if (id === "create") setStep(1); setNavOpen(false); };
 
-  if (modelStatus.status !== "ready") {
-    return (
-      <div className={"shell is-landing" + (navOpen ? " nav-open" : "")}>
-        <ThemeSwitch theme={theme} setTheme={setTheme} fixed />
-        <div className="content"><ModelSplash status={modelStatus} onRetry={handleRetry} /></div>
-      </div>
-    );
-  }
-
 
   return (
     <div className={"shell" + (chromeless ? " is-landing" : "") + (navOpen ? " nav-open" : "")}>
@@ -161,6 +158,7 @@ export default function App() {
               onClick={() => go(n.id)}
             >
               <n.icon /> {n.label}
+              {n.id==="processing"&&(processing.counts.queued||processing.counts.running||processing.counts.cancelling)>0&&<span className="processing-count">{(processing.counts.queued||0)+(processing.counts.running||0)+(processing.counts.cancelling||0)}</span>}
             </button>
           ))}
         </nav>
@@ -181,6 +179,7 @@ export default function App() {
             <div className="sub">{t.sub}</div>
           </div>
           <div className="topbar-right">
+            <button className="btn btn-ghost processing-indicator" onClick={()=>go("processing")}>{processing.counts.running||0} processing · {processing.counts.queued||0} queued</button>
             <ThemeSwitch theme={theme} setTheme={setTheme} />
             <span className={"badge " + (online ? "ok" : online === false ? "warn" : "")}>
               <span className="dot" />
@@ -199,11 +198,15 @@ export default function App() {
             <span className="orb orb-4" />
             <span className="orb orb-5" />
           </div>
-          {page === "create" && <Create key="create" step={step} setStep={setStep} />}
-          {page === "library" && <Library />}
+          {modelStatus.status!=="ready"&&<div className="queue-model-banner" role="status">{modelStatus.message||"Preparing local AI engine…"} {modelStatus.status==="error"&&<button className="btn btn-ghost" onClick={handleRetry}>Retry engine</button>}</div>}
+          <div hidden={page!=="create"}><Create key="create" step={step} setStep={setStep} onSubmitted={()=>setPage(current=>current==="create"?"processing":current)} onProcessing={()=>go("processing")} /></div>
+          {page === "library" && <Library focusClipId={libraryFocus} processingRevision={processing.jobs.reduce((n,j)=>n+j.generated_clips,0)} />}
+          {page === "processing"&&<Processing processing={processing} onLibrary={id=>{setLibraryFocus(id);go("library")}}/>}
           {page === "settings" && <Settings />}
         </div>
       </div>
+      {chromeless&&<button className="btn btn-ghost landing-processing" onClick={()=>go("processing")}><Icons.processing/> Processing · {(processing.counts.queued||0)+(processing.counts.running||0)}</button>}
+      {processing.notice&&<div className="processing-notice" role="status">{processing.notice.text}<button onClick={()=>{setLibraryFocus(null);go("library");processing.dismissNotice()}}>Open Library</button><button aria-label="Dismiss notification" onClick={processing.dismissNotice}>✕</button></div>}
     </div>
   );
 }

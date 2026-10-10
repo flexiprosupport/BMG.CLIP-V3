@@ -20,7 +20,7 @@ import threading
 import uuid
 from typing import Dict, Optional
 
-from . import downloader
+from . import downloader, queued_download, resources, source_security
 from .models import InvalidVideoURLError
 
 logger = logging.getLogger("ai_video_clipper.prefetch")
@@ -77,7 +77,7 @@ def get(prefetch_id: str) -> Optional[Prefetch]:
 
 def start(url: str) -> Prefetch:
     """Create a prefetch and begin downloading `url` on a daemon thread."""
-    pf = Prefetch(url)
+    pf = Prefetch(source_security.validate_source(url))
     with _LOCK:
         _PREFETCHES[pf.id] = pf
     threading.Thread(target=_run, args=(pf,), daemon=True).start()
@@ -110,7 +110,8 @@ def _run(pf: Prefetch) -> None:
             pf.update(progress=0.99, message="Finalizing download...")
 
     try:
-        path = downloader.download_video(pf.url, progress_hook=hook)
+        with resources.slot("download"):
+            path = queued_download.download(pf.url,hook,lambda:False)
         # The file lives at downloads/<id>.<ext>; its stem is a 32-char hex id the
         # pipeline can resolve exactly like an upload reference.
         pf.update(

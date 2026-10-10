@@ -8,7 +8,7 @@ const SOCIALS = [{ label: "Telegram @bmg009", href: "https://t.me/bmg009", color
 // forward (auto-advance to Screen 2 the moment a source is picked).
 export default function Screen1Input({
   source, setSource, url, setUrl, upload, upPct, drag, setDrag, fileRef,
-  doUpload, onClear, sourceReady, error, onContinue,
+  doUpload, onClear, sourceReady, error, onContinue, batchInput, onPasteUrls,
 }) {
   const uploading = source === "upload" && upPct != null && !upload;
   const fileChosen = source === "upload" && (upload || upPct != null);
@@ -51,6 +51,7 @@ export default function Screen1Input({
               placeholder="Paste a YouTube or video link…"
               value={url}
               onChange={(e) => { setSource("url"); setUrl(e.target.value); }}
+              onPaste={e=>{const text=e.clipboardData.getData("text");if(text.includes("\n")){e.preventDefault();onPasteUrls?.(text)}}}
               onKeyDown={(e) => { if (e.key === "Enter" && sourceReady) onContinue(); }}
             />
           )}
@@ -59,6 +60,7 @@ export default function Screen1Input({
             <Icons.bolt /> {uploading ? "Uploading…" : "Continue"}
           </button>
         </div>
+        {batchInput}
 
         {error && <div className="error landing-error">{error}</div>}
 

@@ -25,10 +25,14 @@ globalThis.document = {
 const canvas = createCanvas(width,height);
 const renderer = await createCaptionRenderer(canvas, request);
 let frame, changedFrames = 0;
-for (let index = 0; index < Math.ceil(request.duration * fps) + 1; index++) {
+const count = Math.ceil(request.duration * fps) + 1;
+for (let index = 0; index < count; index++) {
   if (await renderer.draw(index / fps) || !frame) {
     frame = canvas.data();
     if (++changedFrames % 10 === 0) globalThis.gc?.();
   }
   if (!process.stdout.write(frame)) await once(process.stdout, "drain");
+  if (index % 15 === 0 || index === count - 1) {
+    process.stderr.write("BMG_PROGRESS " + ((index + 1) / count).toFixed(6) + "\n");
+  }
 }

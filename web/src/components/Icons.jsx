@@ -7,6 +7,7 @@ const S = (d, extra) => (props) => (
 );
 
 export const Icons = {
+  processing: S(<><path d="M3 5h13M3 11h9M3 17h9"/><path d="m16 10 6 4-6 4z"/></>),
   bolt: S(<path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z" fill="currentColor" stroke="none" />),
   create: S(<><path d="M12 5v14" /><path d="M5 12h14" /></>),
   library: S(<><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>),

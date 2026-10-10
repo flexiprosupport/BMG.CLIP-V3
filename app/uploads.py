@@ -78,7 +78,7 @@ def resolve_upload(upload_id: str) -> Path:
     """
     if not upload_id or not _ID_RE.match(upload_id):
         raise InvalidVideoURLError("Invalid upload reference.")
-    matches = sorted(DOWNLOADS_DIR.glob(f"{upload_id}.*"))
+    matches = sorted(p for p in DOWNLOADS_DIR.glob(f"{upload_id}.*") if p.suffix.lower() in ALLOWED_EXTS and p.is_file())
     if not matches:
         raise InvalidVideoURLError(
             "The uploaded file could not be found. Please upload it again."

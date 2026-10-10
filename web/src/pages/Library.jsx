@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Icons } from "../components/Icons.jsx";
+import ReframeEditor from "../components/ReframeEditor.jsx";
 
 function deriveName(entry) {
   if (entry.source_type === "upload") return entry.source || "Uploaded video";
@@ -10,14 +11,16 @@ function deriveName(entry) {
   try { const u = new URL(url); return u.hostname.replace(/^www\./, ""); } catch { return url || "Video"; }
 }
 
-export default function Library() {
+export default function Library({focusClipId,processingRevision}) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [target,setTarget]=useState(null),[focused,setFocused]=useState(focusClipId);
+  useEffect(()=>setFocused(focusClipId),[focusClipId]);
 
   const load = () => api.history().then((h) => setHistory(Array.isArray(h) ? h : [])).catch(() => setHistory([])).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [processingRevision]);
 
-  const allClips = history.flatMap((e) => (e.clips || []).map((c) => ({ ...c, entry: e })));
+  const allClips = history.filter(e=>!focused||e.clip_id===focused).flatMap((e) => (e.clips || []).map((c) => ({ ...c, entry: e })));
   const totalClips = allClips.length;
 
   async function del(entry, c) {
@@ -28,6 +31,12 @@ export default function Library() {
   }
 
   if (loading) return <div className="empty">Loading…</div>;
+  if(target){
+    const settings=target.entry.settings||{};
+    return <ReframeEditor clipId={target.entry.clip_id} clip={target}
+      targetAspect={settings.fit_mode==="square"?1:settings.aspect_ratio==="16:9"?16/9:9/16}
+      onClose={()=>setTarget(null)} onSaved={()=>{setTarget(null);load()}}/>;
+  }
 
   return (
     <>
@@ -39,6 +48,7 @@ export default function Library() {
 
       <div className="card-h" style={{ marginBottom: 6 }}>
         <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>All clips</h2>
+        {focused&&<button className="btn btn-ghost" onClick={()=>setFocused(null)}>Show all videos</button>}
         <button className="btn btn-ghost" onClick={load}><Icons.refresh /> Refresh</button>
       </div>
 
@@ -54,6 +64,7 @@ export default function Library() {
                 <div className="sub">{deriveName(c.entry)}</div>
                 <div className="acts">
                   <a href={c.url} download={c.filename || ""}>Download</a>
+                  <button onClick={()=>setTarget(c)}>Reframe / keyframes</button>
                   <button onClick={() => del(c.entry, c)}>Delete</button>
                 </div>
               </div>

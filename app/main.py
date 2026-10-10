@@ -27,7 +27,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, transcriber, uploads
+from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, transcriber, uploads, resources, job_store, source_security
 from .clipper import ClipOptions, generate_clip
 from .models import ClipGenerationError, Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
 from .paths import CLIPS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, WEB_DIST_DIR, ensure_dirs
@@ -67,11 +67,13 @@ async def lifespan(app: FastAPI):
     """
     ensure_dirs()
     fonts.ensure_fonts()
+    jobs.start_scheduler()
     threading.Thread(target=_load_model_background, daemon=True).start()
     yield
+    jobs.shutdown()
 
 
-app = FastAPI(title="Local AI Video Clipper", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="BMG.CLIP-V3", version="0.2.0", lifespan=lifespan)
 
 # Secure CORS for local dashboard and Vite dev access
 app.add_middleware(
@@ -340,7 +342,7 @@ def get_reframe_info(clip_id: str, index: int) -> dict:
     recipe = reframe.get_recipe(clip_id, index)
     if recipe is None:
         raise HTTPException(status_code=404, detail="No render recipe for this clip.")
-    return {"start": recipe["start"], "end": recipe["end"]}
+    return {"start": recipe["start"], "end": recipe["end"],"keyframes":recipe["opts_kwargs"].get("reframe") or []}
 
 
 @app.post("/api/clip/{clip_id}/{index}/reframe")
@@ -359,16 +361,14 @@ def reframe_clip(clip_id: str, index: int, req: ReframeRequest) -> dict:
             status_code=404,
             detail="No render recipe for this clip (the server may have restarted since it was generated).",
         )
-    opts = ClipOptions(
-        clip_id=clip_id,
-        index=index,
-        reframe=req.keyframes or None,
-        **recipe["opts_kwargs"],
-    )
+    values={**recipe["opts_kwargs"],"reframe":req.keyframes or None}
+    opts = ClipOptions(clip_id=clip_id,index=index,**values)
     try:
         generate_clip(Path(recipe["source_mp4"]), recipe["start"], recipe["end"], opts)
     except ClipGenerationError as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+    reframe.save_recipe(clip_id,index,source_mp4=Path(recipe["source_mp4"]),
+                        start=recipe["start"],end=recipe["end"],opts_kwargs=values)
     return {"status": "ok", "url": f"/clips/{clip_id}/{index}.mp4?v={uuid.uuid4().hex[:8]}"}
 
 
@@ -417,10 +417,127 @@ def generate(req: GenerateRequest) -> dict:
     client subscribes to ``/api/progress/{job_id}`` for live progress and the
     final clips.
     """
-    job = jobs.create_job(req)
+    try:
+        job = jobs.create_job(req)
+    except InvalidVideoURLError as exc:
+        raise HTTPException(status_code=400,detail=str(exc))
     jobs.start_job(job)
     logger.info("[%s] job accepted", job.id)
     return {"job_id": job.id}
+
+class BatchRequest(BaseModel):
+    jobs: list[GenerateRequest] = Field(min_length=1,max_length=50)
+    title: str = Field(default="Video batch",max_length=120)
+
+class QueueSettings(BaseModel):
+    max_parallel_jobs: int = Field(default=1,ge=1,le=3)
+    max_downloads: int = Field(default=2,ge=1,le=3)
+    retry_limit: int = Field(default=2,ge=0,le=5)
+
+class SourceList(BaseModel):
+    urls: list[str] = Field(min_length=1,max_length=50)
+
+@app.post("/api/jobs/validate")
+def validate_links(req:SourceList):
+    valid=[];invalid=[];seen=set();duplicates=0
+    for value in req.urls:
+        try:
+            url=source_security.validate_source(value)
+            key=source_security.identity(url)
+            if key in seen: duplicates+=1;continue
+            seen.add(key);valid.append(url)
+        except InvalidVideoURLError as exc:
+            invalid.append({"url":value,"error":str(exc)})
+    return {"valid":valid,"invalid":invalid,"duplicates":duplicates}
+
+@app.post("/api/batches")
+def create_batch(req:BatchRequest):
+    try:
+        batch_id,created=jobs.create_batch(req.jobs,req.title)
+        return {"batch_id":batch_id,"jobs":[j.snapshot() for j in created],"deduplicated":len(req.jobs)-len(created)}
+    except InvalidVideoURLError as exc:
+        raise HTTPException(status_code=400,detail=str(exc))
+
+@app.get("/api/batches/{batch_id}")
+def batch_detail(batch_id:str):
+    batch=next((b for b in job_store.batches() if b["id"]==batch_id),None)
+    if not batch: raise HTTPException(status_code=404,detail="Unknown batch.")
+    return {**batch,"jobs":[j for j in jobs.list_jobs() if j["batch_id"]==batch_id]}
+
+@app.post("/api/batches/{batch_id}/{action}")
+def batch_action(batch_id:str,action:str):
+    selected=[j for j in jobs.list_jobs() if j["batch_id"]==batch_id]
+    if not selected: raise HTTPException(status_code=404,detail="Unknown batch.")
+    if action not in ("cancel-queued","retry-failed"):
+        raise HTTPException(status_code=400,detail="Unsupported batch action.")
+    changed=[];errors=[]
+    for snap in selected:
+        try:
+            if action=="cancel-queued" and snap["status"]=="queued":
+                jobs.get_job(snap["id"]).cancel();changed.append(snap["id"])
+            if action=="retry-failed" and snap["status"]=="error":
+                jobs.retry_job(snap["id"]);changed.append(snap["id"])
+        except InvalidVideoURLError as exc: errors.append({"id":snap["id"],"error":str(exc)})
+    return {"changed":changed,"errors":errors}
+
+@app.get("/api/jobs/settings")
+def queue_settings():
+    jobs.initialize()
+    return {**resources.LIMITS,"gpu_transcriptions":1,"ffmpeg_exports":1,"pending_limit":100}
+
+@app.post("/api/jobs/settings")
+def update_queue_settings(req:QueueSettings):
+    jobs.initialize()
+    values=req.model_dump()
+    job_store.save_preferences(values);resources.configure(values)
+    return queue_settings()
+
+def queue_snapshot(limit=200,offset=0):
+    all_jobs=jobs.list_jobs()
+    counts={name:sum(j["status"]==name for j in all_jobs) for name in ("queued","running","cancelling","done","error","cancelled")}
+    all_jobs.sort(key=lambda j:(j["status"] in ("done","error","cancelled"),-j["created_at"]))
+    summaries=[]
+    for snapshot in all_jobs[offset:offset+limit]:
+        summaries.append({k:v for k,v in snapshot.items() if k not in ("settings","metadata","clips")})
+    return {"jobs":summaries,"counts":counts,"total":len(all_jobs),"batches":job_store.batches()}
+
+@app.get("/api/jobs")
+def processing_jobs(limit:int=200,offset:int=0):
+    return queue_snapshot(max(1,min(1000,limit)),max(0,offset))
+
+@app.get("/api/jobs/events")
+async def processing_events():
+    async def events():
+        while True:
+            yield "data: "+json.dumps(queue_snapshot(1000))+"\n\n"
+            await asyncio.sleep(1)
+    return StreamingResponse(events(),media_type="text/event-stream",
+                             headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
+
+@app.get("/api/jobs/{job_id}")
+def job_detail(job_id:str):
+    job=jobs.get_job(job_id)
+    if not job: raise HTTPException(status_code=404,detail="Unknown job.")
+    return job.snapshot()
+
+@app.post("/api/jobs/{job_id}/retry")
+def retry_processing(job_id:str):
+    try: return jobs.retry_job(job_id).snapshot()
+    except InvalidVideoURLError as exc: raise HTTPException(status_code=409,detail=str(exc))
+
+@app.delete("/api/jobs/{job_id}")
+def dismiss_processing(job_id:str):
+    try: jobs.remove_job(job_id)
+    except InvalidVideoURLError as exc: raise HTTPException(status_code=409,detail=str(exc))
+    return {"removed":True,"clips_deleted":False}
+
+@app.get("/api/jobs/{job_id}/thumbnail")
+def job_thumbnail(job_id:str):
+    job=jobs.get_job(job_id)
+    target=CLIPS_DIR/(job.clip_id or "")/"thumbnail.jpg" if job else None
+    if not target or not target.is_file():
+        raise HTTPException(status_code=404,detail="Thumbnail not ready.")
+    return FileResponse(target)
 
 
 @app.get("/api/transcript/{source_id}")

@@ -77,6 +77,7 @@ _COMPUTE_TYPE = {"cuda": "float16", "cpu": "int8"}
 # requests is cheap after the first load. `_device` records the most recently
 # used device (drives the /health badge); `_cuda_available` is a cached probe.
 _models: dict[str, WhisperModel] = {}
+_task_device = threading.local()
 _model_sizes: dict[str, str] = {}  # device -> whisper model size actually loaded
 _device: str = "uninitialised"
 _cuda_available: Optional[bool] = None
@@ -477,7 +478,7 @@ def load_model(device: str = "auto") -> WhisperModel:
 
 def get_device() -> str:
     """Return the device of the most-recent model ('cuda', 'cpu', or 'uninitialised')."""
-    return _device
+    return getattr(_task_device,"value",_device)
 
 
 def _normalize_language(language: Optional[str]) -> Optional[str]:
@@ -504,6 +505,7 @@ def transcribe_video(
     progress: Optional[Callable[[float, str], None]] = None,
     device: str = "auto",
     language: Optional[str] = None,
+    cancelled: Optional[Callable[[], bool]] = None,
 ) -> dict:
     """Transcribe `video_path`, returning a dict with word-level timestamps.
 
@@ -527,9 +529,14 @@ def transcribe_video(
     # message so the UI shows a queued state instead of a frozen 0%.
     if progress and _transcribe_lock.locked():
         progress(0.0, "Waiting for an earlier transcription to finish…")
-    _transcribe_lock.acquire()
+    while not _transcribe_lock.acquire(timeout=.2):
+        if cancelled and cancelled():
+            raise TranscriptionError("Transcription cancelled while waiting.")
     try:
+        if cancelled and cancelled():
+            raise TranscriptionError("Transcription cancelled.")
         def _run_pass(active_model: WhisperModel) -> dict:
+            _task_device.value=next((name for name,loaded in list(_models.items()) if loaded is active_model),device)
             segments_gen, info = active_model.transcribe(
                 str(video_path),
                 word_timestamps=True,
@@ -543,9 +550,11 @@ def transcribe_video(
             text_parts: list[str] = []
             total_dur = float(info.duration) or 0.0
             if progress:
-                progress(0.05, "Transcribing audio with local Whisper...")
+                progress(None, "Transcribing audio with local Whisper...")
 
             for seg in segments_gen:
+                if cancelled and cancelled():
+                    raise TranscriptionError("Transcription cancelled at an audio segment boundary.")
                 seg_text = (seg.text or "").strip()
                 if progress and total_dur > 0:
                     frac = min(0.99, float(seg.end) / total_dur)
@@ -573,6 +582,7 @@ def transcribe_video(
                     )
 
             return {
+                "device": _task_device.value,
                 "language": info.language,
                 "duration": total_dur,
                 "text": " ".join(text_parts).strip(),
@@ -584,7 +594,7 @@ def transcribe_video(
             result = _run_pass(model)
         except Exception as exc:
             # If GPU transcription failed (either at init or mid-stream), fall back to CPU
-            is_gpu = (_device == "cuda") or (device in ("auto", "cuda") and cuda_available())
+            is_gpu = any(name=="cuda" and loaded is model for name,loaded in _models.items())
             if is_gpu and device != "cpu":
                 logger.warning("GPU transcription failed (%s). Retrying on CPU...", exc)
                 if progress:

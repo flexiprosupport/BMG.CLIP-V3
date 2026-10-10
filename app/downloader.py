@@ -138,6 +138,7 @@ def _clean_ydl_error(raw: str) -> str:
 def download_video(
     url: str, progress_hook: Optional[Callable[[dict], None]] = None,
     cancelled: Optional[Callable[[], bool]] = None,
+    download_token: Optional[str] = None,
 ) -> Path:
     """Download `url` to downloads/<uuid>.mp4 and return the file path.
 
@@ -153,7 +154,9 @@ def download_video(
     if not url or not url.strip():
         raise InvalidVideoURLError("No video URL was provided.")
 
-    clip_uuid = uuid.uuid4().hex
+    clip_uuid = download_token or uuid.uuid4().hex
+    if len(clip_uuid)!=32 or any(c not in "0123456789abcdef" for c in clip_uuid):
+        raise InvalidVideoURLError("Invalid download identifier.")
     # yt-dlp fills in the real extension; we force a merge to mp4 below so the
     # final file is downloads/<uuid>.mp4.
     out_template = str(DOWNLOADS_DIR / f"{clip_uuid}.%(ext)s")
@@ -190,7 +193,14 @@ def download_video(
         "no_warnings": True,
         # Be resilient: keep going if a single fragment hiccups.
         "ignoreerrors": False,
+        "proxy": "", "socket_timeout": 15, "retries": 2, "fragment_retries": 2,
+        "max_filesize": 2 * 1024**3, "hls_prefer_native": True,
+        "enable_file_urls": False,
     }
+    # External protocol downloaders could bypass the child process's socket
+    # guard. Permit HTTP and native HLS/DASH only; FFmpeg merges local files.
+    safe = '[protocol~="^(https?|m3u8_native|http_dash_segments)$"]'
+    base_opts["format"] = f"bestvideo[height<=1080]{safe}+bestaudio{safe}/best[height<=1080]{safe}/best{safe}"
     if progress_hook is not None or cancelled is not None:
         def guarded_progress(data: dict) -> None:
             if cancelled is not None and cancelled():

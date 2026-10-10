@@ -59,6 +59,12 @@ export default function ReframeEditor({ clipId, clip, targetAspect, initialKeyfr
 
   const duration = Math.max(0.1, clip.end - clip.start);
   const srcUrl = api.clipSourceUrl(clipId, clip.index);
+  useEffect(()=>{
+    if(initialKeyframes?.length)return;
+    let alive=true;
+    api.reframeInfo(clipId,clip.index).then(info=>{if(alive&&info.keyframes?.length)setKeyframes(info.keyframes)}).catch(()=>{});
+    return()=>{alive=false};
+  },[clipId,clip.index]);
 
   useEffect(() => {
     const v = videoRef.current;

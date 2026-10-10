@@ -20,6 +20,63 @@ A local AI video clipping app with a React dashboard, Whisper transcription, sty
 - Review and download finished clips.
 - Yellow BMG.CLIP-V3 branding, browser icon, and Windows icon.
 
+## Background processing and batches
+
+- **Processing** sits between Library and Settings. Its live badge counts
+  queued/active videos; a single reconnecting SSE feed keeps every page current.
+- Configure the video(s), captions, blur, effects, music and signature, then
+  explicitly click **Start Processing** or **Start Batch Processing** on Review.
+  Entering Review never starts an export. Browser navigation, refresh and closing
+  the tab do not cancel backend jobs. The desktop backend must remain running.
+- Add/remove link rows or paste one URL per line (maximum 50 per batch).
+  Duplicate video sources are removed. Shared editor settings apply to all
+  videos; Review has per-video aspect, device, language, style, count and length
+  overrides. **Capture editor settings** stores the complete advanced editor
+  configuration for an individual video.
+- Filter/search/sort jobs, expand/collapse batches, cancel queued/running jobs,
+  retry failed videos and remove stopped jobs from processing history.
+  Removing a processing item never deletes Library clips. Finished clips are
+  published incrementally and retained if a later clip fails.
+- Queue Settings defaults: one heavy pipeline, two download workers, two manual
+  retries. Limits are bounded (maximum three pipeline/download workers), checked
+  against available RAM/disk, and persisted. Whisper is serialized across prep
+  and jobs; caption/video exports and manual Reframe share one rendering gate.
+  FFmpeg encoding threads are capped using the machine's CPU count. Downloads
+  can have bounded local FFmpeg merge processes of their own.
+- The local `data/processing.sqlite3` database uses WAL and schema version 1.
+  It stores request/settings snapshots, stages, batches, source paths, selected
+  windows and clip references. Interrupted work is recovered as queued on
+  restart; stable output IDs and Library upserts prevent duplicate entries.
+  Render recipes also survive restart. Keep the app's downloads/transcripts/clips
+  folders: recipes and retries need the original media.
+- Download bytes, Whisper audio timestamps, rendered caption frames and FFmpeg
+  output timestamps drive **current-stage** progress. Unknown stages show an
+  indeterminate bar. ETA is an explicitly estimated stage ETA only after useful
+  measured progress. Batch percentage is the actual completed-video count, not a
+  guessed proportion of execution time.
+- Cancellation kills owned download trees and stops FFmpeg/Node renderers.
+  In-process Whisper stops at the next audio-segment boundary; model loading and
+  a currently executing native inference call are not force-killed. The job
+  remains “Stopping” until ownership is released. **Pause is not supported.**
+- Public supported-provider/direct-video URLs only. The isolated downloader
+  restricts protocols, HTTP handlers, DNS destinations and connection addresses;
+  private/local redirects and DNS rebinding fail closed. External-network
+  FFmpeg download fallbacks are disabled. File limit: 2 GB; download timeout:
+  15 minutes; source duration limit: six hours. Respect source permissions.
+  No paid service or API key is introduced.
+
+This is a single-process local queue (the default launcher), not a multi-host
+distributed worker system. The regression suite is
+`python -m unittest app.test_processing_queue`: offline simulated stage work
+tests background submission, five-video failure isolation, resource limits,
+cancellation, persistence/recovery, retry, deduplication and source guards.
+An additional local integration probe verified actual SQLite/API delivery and
+native-caption/blur/audio FFmpeg output, measured frame/output progress, restart,
+recipe persistence and Library retention. Existing 104-style native export and
+reframe/cancellation checks also passed. Actual GPU execution and installation
+on Windows have not been tested here. Browser automation could not complete in
+this environment; manual editor/navigation review remains necessary.
+
 ## Run on Windows
 
 The native **BMG.CLIP-V3-Setup.exe** is a Windows x64 console-based online

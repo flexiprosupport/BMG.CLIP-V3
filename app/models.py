@@ -272,6 +272,7 @@ class GenerateRequest(BaseModel):
     required; ``upload_id`` takes precedence if both are somehow supplied.
     """
 
+    submission_id: Optional[str] = Field(default=None,max_length=64,pattern=r"^[a-zA-Z0-9:_-]+$")
     video_url: Optional[str] = Field(
         default=None, description="Source video URL (e.g. YouTube)."
     )

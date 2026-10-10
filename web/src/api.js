@@ -14,7 +14,7 @@ async function jpost(path, body) {
     body: JSON.stringify(body),
   });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.detail || `${path} → ${r.status}`);
+  if (!r.ok) throw new Error(Array.isArray(data.detail)?data.detail.map(e=>`${e.loc?.slice(1).join(".")||"Input"}: ${e.msg}`).join(" · "):data.detail || `${path} → ${r.status}`);
   return data;
 }
 
@@ -28,6 +28,17 @@ export const api = {
   fonts: () => jget("/api/fonts"),
   history: () => jget("/api/history"),
   generate: (payload) => jpost("/api/generate", payload),
+  jobs: () => jget("/api/jobs?limit=1000"),
+  batch: (payload) => jpost("/api/batches",payload),
+  validateLinks: (urls) => jpost("/api/jobs/validate",{urls}),
+  retryJob: (id) => jpost(`/api/jobs/${id}/retry`,{}),
+  queueSettings: () => jget("/api/jobs/settings"),
+  saveQueueSettings: (values) => jpost("/api/jobs/settings",values),
+  batchAction: (id,action) => jpost(`/api/batches/${id}/${action}`,{}),
+  removeJob: async (id) => {
+    const r=await fetch(`/api/jobs/${id}`,{method:"DELETE"});
+    const value=await r.json();if(!r.ok)throw Error(value.detail||"Could not remove job.");return value;
+  },
   cancel: (jobId) => jpost(`/api/cancel/${jobId}`, {}),
   musicSuggest: (sourceId, language) => jget(`/api/music-suggest/${sourceId}` + (language ? `?language=${encodeURIComponent(language)}` : "")),
   transcript: (sourceId, language) => jget(`/api/transcript/${sourceId}` + (language ? `?language=${encodeURIComponent(language)}` : "")),

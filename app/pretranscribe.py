@@ -19,6 +19,7 @@ import json
 import logging
 import threading
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
@@ -49,12 +50,24 @@ def cached(source_id: str, language: Optional[str] = None) -> Optional[dict]:
         return _CACHE.get(_key(source_id, language))
 
 
+@contextmanager
+def _transcription_gate(cancelled):
+    while not _TRANSCRIBE_LOCK.acquire(timeout=.2):
+        if cancelled and cancelled():
+            raise TranscriptionError("Transcription cancelled while waiting.")
+    try:
+        if cancelled and cancelled(): raise TranscriptionError("Transcription cancelled.")
+        yield
+    finally:
+        _TRANSCRIBE_LOCK.release()
+
 def get_or_transcribe(
     source_path: Path,
     source_id: str,
     device: str,
     progress: Optional[Callable[[float, str], None]] = None,
     language: Optional[str] = None,
+    cancelled: Optional[Callable[[], bool]] = None,
 ) -> dict:
     """Return a cached transcript for this source+language, or transcribe + cache it.
 
@@ -69,7 +82,7 @@ def get_or_transcribe(
     if hit is not None:
         return hit
 
-    with _TRANSCRIBE_LOCK:
+    with _transcription_gate(cancelled):
         # Re-check now that we hold the lock — a concurrent run may have finished.
         hit = cached(source_id, language)
         if hit is not None:
@@ -88,7 +101,7 @@ def get_or_transcribe(
                 logger.warning("Ignoring unreadable transcript %s", tpath, exc_info=True)
 
         result = transcriber.transcribe_video(
-            source_path, key, progress=progress, device=device, language=language
+            source_path, key, progress=progress, device=device, language=language, cancelled=cancelled
         )
         with _CACHE_LOCK:
             _CACHE[key] = result
@@ -177,7 +190,7 @@ def _run(job: TranscriptJob) -> None:
         return
 
     def on_progress(frac: float, msg: str) -> None:
-        job.update(progress=min(0.99, frac), message=msg)
+        job.update(progress=min(0.99, frac) if frac is not None else 0, message=msg)
 
     try:
         get_or_transcribe(

@@ -18,11 +18,12 @@ import os
 import subprocess
 import tempfile
 import uuid
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import effects, canvas_captions
+from . import effects, canvas_captions, resources
 from .models import AspectRatio, ClipGenerationError, FitMode
 from .paths import CLIPS_DIR, FONTS_DIR, MASKS_DIR
 
@@ -449,13 +450,15 @@ def _music_audio_graph(mus_idx: int, volume: float, duck: float = 70.0,
 
 # Shared output-encoding args (everything after the filter graph).
 _ENCODE_ARGS = [
-    "-c:v", "libx264", "-preset", "superfast", "-threads", "0", "-crf", "20", "-pix_fmt", "yuv420p",
+    "-c:v", "libx264", "-preset", "superfast", "-threads", str(max(1,min(4,(os.cpu_count() or 2)//2))), "-filter_complex_threads", "2", "-crf", "20", "-pix_fmt", "yuv420p",
     "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
 ]
 
 
+@resources.render_guard
 def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions,
-                  cancelled: Optional[Callable[[], bool]] = None) -> Path:
+                  cancelled: Optional[Callable[[], bool]] = None,
+                  progress: Optional[Callable] = None) -> Path:
     """Cut [start, end] from `source_mp4`, reframe + caption it, return the mp4.
 
     Raises:
@@ -475,6 +478,7 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions,
         layer = canvas_captions.render_layer(
             Path(opts.caption_recipe), out_dir / f"{opts.index}.captions.mov",
             width, height, cancelled=cancelled,
+            progress=(lambda frac:progress("captioning",frac)) if progress else None,
         )
         if layer is None:
             return out_path
@@ -524,11 +528,15 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions,
         *tail,
         str(temp_path),
     ]
+    progress_path = out_dir / f".{opts.index}.{uuid.uuid4().hex}.progress"
+    if progress:
+        cmd[1:1] = ["-progress", str(progress_path), "-stats_period", "0.3"]
+        progress("exporting",0)
 
     logger.info("Rendering clip %d (cwd=%s): %s", opts.index, out_dir, " ".join(cmd))
 
     try:
-        if cancelled is None:
+        if cancelled is None and progress is None:
             proc = subprocess.run(
                 cmd, cwd=str(out_dir), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 text=True, encoding="utf-8", errors="replace",
@@ -540,7 +548,7 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions,
                 with subprocess.Popen(cmd, cwd=str(out_dir), stdout=subprocess.DEVNULL,
                                       stderr=stderr_file) as process:
                     while process.poll() is None:
-                        if cancelled():
+                        if cancelled and cancelled():
                             process.terminate()
                             try:
                                 process.wait(timeout=3)
@@ -548,6 +556,11 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions,
                                 process.kill()
                                 process.wait()
                             raise ClipGenerationError("Clip rendering was cancelled.")
+                        if progress and progress_path.exists():
+                            data=progress_path.read_text(encoding="utf-8",errors="ignore")
+                            values=re.findall(r"out_time_us=(\d+)",data)
+                            if values:
+                                progress("exporting",min(.999,int(values[-1])/1_000_000/duration))
                         try:
                             process.wait(timeout=0.3)
                         except subprocess.TimeoutExpired:
@@ -570,6 +583,8 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions,
         if temp_path.exists():
             temp_path.unlink(missing_ok=True)
         raise ClipGenerationError(f"Failed to run ffmpeg: {exc}") from exc
+    finally:
+        progress_path.unlink(missing_ok=True)
 
     if proc.returncode != 0 or not temp_path.exists() or temp_path.stat().st_size == 0:
         if temp_path.exists():
@@ -583,6 +598,7 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions,
     # Atomically replace destination clip so existing good clips are never corrupted
     try:
         temp_path.replace(out_path)
+        if progress: progress("exporting",1)
     except Exception as exc:
         if temp_path.exists():
             temp_path.unlink(missing_ok=True)

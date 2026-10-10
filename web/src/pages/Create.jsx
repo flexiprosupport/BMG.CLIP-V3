@@ -23,7 +23,7 @@ function targetAspectNum(aspect, fit) {
   return aspect === "16:9" ? 16 / 9 : 9 / 16;
 }
 
-export default function Create({ step, setStep }) {
+export default function Create({ step, setStep, onSubmitted, onProcessing }) {
   const [presets, setPresets] = useState([]);
   const [fonts, setFonts] = useState({ bundled: [], multilingual: [], user: [] });
   const [devices, setDevices] = useState(["auto"]);
@@ -31,6 +31,12 @@ export default function Create({ step, setStep }) {
   // Source
   const [source, setSource] = useState("url");
   const [url, setUrl] = useState("");
+  const [extraUrls,setExtraUrls]=useState([]);
+  const [videoOverrides,setVideoOverrides]=useState({});
+  const submissionToken=useRef(null);
+  const submissionSignature=useRef(null);
+  const urls=[...new Set([url,...extraUrls].map(s=>s.trim()).filter(Boolean))];
+  const isBatch=source==="url"&&extraUrls.length>0;
   const [upload, setUpload] = useState(null);
   const [upPct, setUpPct] = useState(null);
   const [objUrl, setObjUrl] = useState(null);
@@ -102,6 +108,7 @@ export default function Create({ step, setStep }) {
   const prep = usePrep(device, language);
 
   function startPrep() {
+    if(isBatch)return;
     if (source === "url" && url.trim()) prep.startUrl(url.trim());
     else if (source === "upload" && upload?.upload_id) prep.startUpload(upload.upload_id);
   }
@@ -210,19 +217,17 @@ export default function Create({ step, setStep }) {
 
   function changeLanguage(v) { setLanguage(v); studio.onLanguageChange(v); prep.relang(v); }
 
-  const sourceReady = source === "upload" ? !!upload : !!url.trim();
+  const sourceReady = source === "upload" ? !!upload : urls.length>0&&urls.length<=50&&extraUrls.every(s=>s.trim());
 
   const prepView = useMemo(() => {
     if (source === "upload" && upPct != null && !upload) {
       return { phase: "downloading", pct: upPct, message: upPct >= 100 ? "Processing upload…" : "Uploading your video…" };
     }
+    if(isBatch)return {phase:"ready",pct:null,message:`${urls.length} videos selected. Shared settings apply to all; processing starts only after Review.`};
     return prep.prep;
-  }, [source, upPct, upload, prep.prep]);
+  }, [source, upPct, upload, prep.prep,isBatch,urls.length]);
 
-  async function generate() {
-    const epoch = ++generationEpoch.current;
-    jobRef.current = null;
-    setError("");
+  function buildSettings(){
     const payload = {
       aspect_ratio: aspect, fit_mode: fit,
       background_blur: backgroundBlur,
@@ -232,12 +237,42 @@ export default function Create({ step, setStep }) {
       num_clips: numClips, device, caption_style: studio.styleId,
       language: language === "auto" ? null : language,
       square_corners: squareCorners,
+      clip_length:clipLen,caption_overrides:studio.overrides,
+      cinematic:cineActive(studio.cinematic)?studio.cinematic:null,
+      music_track:musicTrack||null,music_volume:musicVolume,music_duck:musicDuck,music_start:musicStart,
+      signature:signature.enabled&&(signature.text||"").trim()?signature:null,
     };
     if (clipLen != null) payload.clip_length = clipLen;
     if (Object.keys(studio.overrides).length) payload.caption_overrides = studio.overrides;
     if (cineActive(studio.cinematic)) payload.cinematic = studio.cinematic;
     if (musicTrack) { payload.music_track = musicTrack; payload.music_volume = musicVolume; payload.music_duck = musicDuck; payload.music_start = musicStart; }
     if (signature.enabled && (signature.text || "").trim()) payload.signature = signature;
+    return JSON.parse(JSON.stringify(payload));
+  }
+
+  async function continueSource(){
+    setError("");
+    try{
+      if(source==="url"){
+        const check=await api.validateLinks(urls);
+        if(check.invalid.length){setError(check.invalid.map(v=>`${v.url}: ${v.error}`).join(" · "));return}
+        setUrl(check.valid[0]||"");setExtraUrls(check.valid.slice(1));
+      }
+      startPrep();setStep(2);
+    }catch(e){setError(e.message)}
+  }
+
+  function pasteUrls(text){
+    const next=[...new Set(text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean))];
+    if(next.length>50){setError("Use at most 50 video links per batch.");return}
+    setSource("url");setUrl(next[0]||"");setExtraUrls(next.slice(1));setVideoOverrides({});
+  }
+
+  async function generate() {
+    if(busy)return;
+    const epoch = ++generationEpoch.current;
+    setError("");
+    const payload=buildSettings();
     if (source === "upload") {
       if (!upload) { setError("Wait for the upload to finish."); return; }
       payload.upload_id = upload.upload_id; payload.upload_name = upload.filename;
@@ -247,25 +282,24 @@ export default function Create({ step, setStep }) {
       if (prep.downloadId) payload.download_id = prep.downloadId;
     }
 
-    setBusy(true); setClips([]); setSnap({ stage: "queued", progress: 0.02, message: "Starting…", status: "running" });
+    const signature=JSON.stringify({payload,urls:isBatch?urls:null,overrides:isBatch?videoOverrides:null});
+    if(submissionSignature.current!==signature){submissionToken.current=null;submissionSignature.current=signature}
+    submissionToken.current ||= crypto.randomUUID();
+    payload.submission_id=submissionToken.current;
+    setBusy(true);
     try {
-      const { job_id } = await api.generate(payload);
-      if (epoch !== generationEpoch.current) {
-        api.cancel(job_id).catch(() => {});
-        return;
+      if(isBatch){
+        const check=await api.validateLinks(urls);
+        if(check.invalid.length)throw Error(check.invalid.map(v=>v.error).join(" · "));
+        await api.batch({title:`Batch · ${check.valid.length} videos`,jobs:check.valid.map((video_url,i)=>{
+          const job={...payload,...videoOverrides[video_url],video_url,submission_id:`${submissionToken.current}:${i}`};
+          delete job.upload_id;delete job.upload_name;delete job.download_id;return job;
+        })});
+        setBusy(false);submissionToken.current=null;restart();onSubmitted?.();return;
       }
+      const { job_id } = await api.generate(payload);
       jobRef.current = job_id;
-      closeRef.current = streamProgress(job_id, (sn) => {
-        if (epoch !== generationEpoch.current) return;
-        setSnap(sn);
-        if (sn.clips) setClips(sn.clips);
-        if (sn.clip_id) setClipId(sn.clip_id);
-        if (sn.status === "done" || sn.status === "error" || sn.status === "cancelled") {
-          setBusy(false);
-          if (sn.status === "error") setError(sn.error || sn.message || "Pipeline failed.");
-          closeRef.current && closeRef.current();
-        }
-      }, () => { if (epoch === generationEpoch.current) { setBusy(false); setError("Lost connection to the progress stream."); } });
+      setBusy(false);submissionToken.current=null;restart();onSubmitted?.();
     } catch (e) { if (epoch === generationEpoch.current) { setBusy(false); setError(e.message); } }
   }
 
@@ -280,16 +314,6 @@ export default function Create({ step, setStep }) {
     generatedRef.current = true;
   }
 
-  // Screen 6 (Review) — auto-render every clip the instant this screen is entered.
-  useEffect(() => {
-    if (step < 6) generatedRef.current = false;
-    if (step === 6 && !generatedRef.current && !busy && clips.length === 0) {
-      generatedRef.current = true;
-      generate();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
   function openReframe(clip) {
     setReframeTarget(clip);
   }
@@ -303,6 +327,7 @@ export default function Create({ step, setStep }) {
   function restart() {
     setStep(1);
     setSource("url"); setUrl(""); setUpload(null); setUpPct(null);
+    setExtraUrls([]);setVideoOverrides({});
     if (objUrl) URL.revokeObjectURL(objUrl);
     setObjUrl(null);
     setClips([]); setSnap(null); setError(""); setClipId(null);
@@ -333,7 +358,14 @@ export default function Create({ step, setStep }) {
           source={source} setSource={setSource} url={url} setUrl={setUrl}
           upload={upload} upPct={upPct} drag={drag} setDrag={setDrag} fileRef={fileRef}
           doUpload={doUpload} onClear={() => doUpload(null)} sourceReady={sourceReady} error={error}
-          onContinue={() => { startPrep(); setStep(2); }}
+          onContinue={continueSource}
+          onPasteUrls={pasteUrls}
+          batchInput={source==="url"&&<div className="batch-input">
+            {extraUrls.map((value,index)=><div className="batch-url-row" key={index}><label htmlFor={`batch-url-${index}`}>Video {index+2}</label><input id={`batch-url-${index}`} value={value} placeholder="https://…" onChange={e=>setExtraUrls(rows=>rows.map((s,i)=>i===index?e.target.value:s))}/><button className="btn btn-ghost" onClick={()=>setExtraUrls(rows=>rows.filter((_,i)=>i!==index))}>Remove</button></div>)}
+            <button className="btn btn-ghost" disabled={extraUrls.length>=49} onClick={()=>setExtraUrls(rows=>[...rows,""])}>+ Add Another Link</button>
+            <details><summary>Paste multiple links</summary><textarea aria-label="Paste video links" placeholder="One video URL per line" onPaste={e=>{e.preventDefault();pasteUrls(e.clipboardData.getData("text"))}} onBlur={e=>{if(e.target.value.trim()){pasteUrls(e.target.value);e.target.value=""}}}/></details>
+            <p className="note">{urls.length} video{urls.length===1?"":"s"} selected · duplicate links are removed · maximum 50</p>
+          </div>}
         />
       )}
 
@@ -392,11 +424,32 @@ export default function Create({ step, setStep }) {
 
 
       {step === 6 && (
-        <Screen6Review
-          busy={busy} snap={snap} clips={clips} error={error}
-          onCancel={cancelGenerate} onRetry={() => { generatedRef.current = true; generate(); }} onOpenReframe={openReframe}
-          onBack={() => setStep(5)} onNext={() => setStep(7)}
-        />
+        <section className="card queue-review">
+          <div className="card-h"><h2>Review & start processing</h2><span className="badge">{isBatch?`${urls.length} videos`:"Single video"}</span></div>
+          <p>Nothing is rendered until you start processing. Jobs continue locally when you switch pages or close this browser tab.</p>
+          <p className="note">Shared settings: {outputAspect} · {numClips} clips/video · {clipLen?`${clipLen}s`:"Auto length"} · {studio.styleId} · {device.toUpperCase()} · background blur {backgroundBlur?`${blurStrength}%`:"off"}</p>
+          {isBatch&&<><p className="note">Optional per-video overrides. “Capture editor settings” saves every current caption, blur, effect, music and signature setting for that video. Return to earlier screens to edit, then capture a different video.</p>
+            {urls.map((link,index)=>{
+              const override=videoOverrides[link]||{};
+              const value={...buildSettings(),...override};
+              const change=(key,v)=>setVideoOverrides(old=>({...old,[link]:{...old[link],[key]:v}}));
+              return <div className="batch-review-video" key={link}><h3>Video {index+1}</h3><p className="note">{link}</p>
+                <div className="processing-toolbar">
+                  <label>Aspect<select value={value.fit_mode==="square"?"1:1":value.aspect_ratio} onChange={e=>{const v=e.target.value;setVideoOverrides(o=>({...o,[link]:{...o[link],aspect_ratio:v==="1:1"?"9:16":v,fit_mode:v==="1:1"?"square":value.background_blur?"blur":"crop"}}))}}><option>9:16</option><option>16:9</option><option>1:1</option></select></label>
+                  <label>Clips<input type="number" min="1" max="100" value={value.num_clips} onChange={e=>change("num_clips",Number(e.target.value))}/></label>
+                  <label>Length<input type="number" min="5" max="600" placeholder="Auto" value={value.clip_length??""} onChange={e=>change("clip_length",e.target.value?Number(e.target.value):null)}/></label>
+                  <label>Device<select value={value.device} onChange={e=>change("device",e.target.value)}>{["auto","cpu","cuda"].map(v=><option key={v} value={v}>{v.toUpperCase()}</option>)}</select></label>
+                  <label>Language<input value={value.language||"auto"} onChange={e=>change("language",e.target.value==="auto"?null:e.target.value)}/></label>
+                  <label>Caption style<select value={value.caption_style} onChange={e=>change("caption_style",e.target.value)}>{presets.map(p=><option key={p.id} value={p.id}>{p.label||p.id}</option>)}</select></label>
+                </div>
+                <button className="btn btn-ghost" onClick={()=>setVideoOverrides(o=>({...o,[link]:buildSettings()}))}>Capture editor settings for video {index+1}</button>
+                {Object.keys(override).length>0&&<button className="btn btn-ghost" onClick={()=>setVideoOverrides(o=>{const n={...o};delete n[link];return n})}>Reset to shared settings</button>}
+              </div>
+            })}
+          </>}
+          {error&&<div className="error">{error}</div>}
+          <div className="acts"><button onClick={()=>setStep(5)}>Back to editing</button><button disabled={busy||!sourceReady} className="btn btn-primary" onClick={generate}>{busy?"Submitting…":isBatch?"Start Batch Processing":"Start Processing"}</button><button onClick={onProcessing}>Open Processing</button></div>
+        </section>
       )}
 
       {step === 7 && (
@@ -409,7 +462,7 @@ export default function Create({ step, setStep }) {
             const n = i + 2;
             return (
               <button key={lbl} type="button" className={"wizard-step" + (step === n ? " active" : step > n ? " done" : "")}
-                onClick={() => setStep(n)} title={`Jump to ${lbl}`}>
+                disabled={n===7&&clips.length===0} onClick={() => setStep(n)} title={`Jump to ${lbl}`}>
                 <span className="wizard-step-dot">{step > n ? "✓" : n - 1}</span>
                 <span className="wizard-step-lbl">{lbl}</span>
               </button>

@@ -44,7 +44,8 @@ def find_node() -> Optional[str]:
 
 
 def render_layer(recipe: Path, output: Path, width: int, height: int,
-                 cancelled: Optional[Callable[[], bool]] = None) -> Optional[Path]:
+                 cancelled: Optional[Callable[[], bool]] = None,
+                 progress: Optional[Callable] = None) -> Optional[Path]:
     node = find_node()
     if not node:
         raise ClipGenerationError("Caption export needs Node.js 22+. Run Setup again to install it.")
@@ -55,8 +56,10 @@ def render_layer(recipe: Path, output: Path, width: int, height: int,
     temporary = output.with_name(output.stem + f".tmp.{token}.mov")
     request_path.write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
     processes = []
+    node_log_path = None
     try:
-        with tempfile.TemporaryFile() as node_log, tempfile.TemporaryFile() as ffmpeg_log:
+        with tempfile.NamedTemporaryFile(delete=False) as node_log, tempfile.TemporaryFile() as ffmpeg_log:
+            node_log_path = Path(node_log.name)
             producer = subprocess.Popen(
                 [node, "--expose-gc", str(ROOT_DIR / "caption_renderer" / "driver.mjs"), str(request_path)],
                 stdout=subprocess.PIPE, stderr=node_log, cwd=str(ROOT_DIR),
@@ -70,7 +73,16 @@ def render_layer(recipe: Path, output: Path, width: int, height: int,
             ], stdin=producer.stdout, stdout=subprocess.DEVNULL, stderr=ffmpeg_log)
             processes.append(encoder)
             producer.stdout.close()
+            offset=0
             while producer.poll() is None or encoder.poll() is None:
+                if progress:
+                    with node_log_path.open("rb") as reader:
+                        reader.seek(offset)
+                        text=reader.read().decode("utf-8","replace")
+                        offset=reader.tell()
+                    for line in text.splitlines():
+                        if line.startswith("BMG_PROGRESS "):
+                            progress(float(line.split()[1]))
                 if cancelled and cancelled():
                     return None
                 if encoder.poll() not in (None, 0):
@@ -98,3 +110,5 @@ def render_layer(recipe: Path, output: Path, width: int, height: int,
             process.wait()
         request_path.unlink(missing_ok=True)
         temporary.unlink(missing_ok=True)
+        if node_log_path:
+            node_log_path.unlink(missing_ok=True)

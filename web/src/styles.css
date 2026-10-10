@@ -1,3 +1,37 @@
+/* Background-processing UI follows the existing dark/light colour tokens. */
+[hidden] { display: none !important; }
+.processing-count { margin-left:auto; border-radius:999px; padding:2px 9px; background:color-mix(in srgb,var(--accent,#c9ed74) 15%,transparent); color:var(--accent,#c9ed74); font-size:13px; }
+.processing-page { max-width:1200px; margin:auto; }
+.processing-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:16px; }
+.processing-toolbar input,.processing-toolbar select { min-width:100px; max-width:320px; padding:9px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel,var(--surface,#1c2022)); color:var(--text,#e9e9e9); }
+.processing-toolbar label { display:flex; flex-direction:column; gap:5px; font-size:12px; }
+.processing-toolbar .tabs { display:flex; flex-wrap:wrap; gap:5px; }
+.processing-toolbar .tabs button { padding:9px 13px; border:1px solid var(--line); border-radius:9px; background:transparent; color:inherit; cursor:pointer; }
+.processing-toolbar .tabs button.active { background:color-mix(in srgb,var(--accent,#c9ed74) 18%,transparent); color:var(--accent,#c9ed74); }
+.processing-job { display:flex; gap:20px; padding:22px; margin:12px 0; border:1px solid var(--line); border-radius:18px; background:var(--panel,var(--surface,#171a1f)); }
+.processing-thumb { flex:0 0 130px; height:82px; display:grid; place-items:center; overflow:hidden; border-radius:10px; background:color-mix(in srgb,var(--text,#fff) 4%,transparent); }
+.processing-thumb img { width:100%; height:100%; object-fit:cover; }
+.processing-thumb svg { width:26px; height:26px; opacity:.5; }
+.processing-body { flex:1; min-width:0; }
+.processing-heading { display:flex; align-items:start; gap:14px; justify-content:space-between; }
+.processing-heading h3 { margin:0; font-size:15px; overflow-wrap:anywhere; }
+.processing-stats { display:flex; flex-wrap:wrap; gap:15px; font-size:12px; opacity:.7; margin:9px 0 14px; }
+.processing-batch { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:12px; margin-top:22px; font-size:13px; }
+.processing-indicator { white-space:nowrap; }
+.landing-processing { position:fixed; left:22px; top:20px; z-index:20; display:flex; align-items:center; gap:8px; backdrop-filter:blur(12px); }
+.processing-notice { position:fixed; bottom:24px; right:24px; max-width:460px; padding:18px; display:flex; gap:12px; flex-wrap:wrap; border:1px solid var(--line); border-radius:14px; background:var(--panel,var(--surface,#202428)); color:var(--text,#eee); z-index:100; box-shadow:0 8px 38px #0005; }
+.processing-notice button { color:inherit; background:none; border:0; text-decoration:underline; cursor:pointer; }
+.queue-model-banner { position:relative; margin:12px 0; padding:10px 16px; border:1px solid var(--line); border-radius:10px; font-size:13px; }
+.batch-input { text-align:left; max-width:800px; margin:18px auto; }
+.batch-input details { margin-top:10px; }
+.batch-input textarea { width:100%; min-height:100px; padding:12px; color:inherit; background:transparent; border:1px solid var(--line); border-radius:10px; }
+.batch-url-row { display:flex; align-items:center; gap:10px; margin:8px 0; }
+.batch-url-row label { white-space:nowrap; font-size:12px; }
+.batch-url-row input { flex:1; min-width:0; padding:10px; border-radius:9px; border:1px solid var(--line); color:inherit; background:transparent; }
+.batch-review-video { padding:18px 0; border-top:1px solid var(--line); }
+.batch-review-video .note { overflow-wrap:anywhere; }
+.queue-review { max-width:1100px; }
+@media(max-width:700px) { .processing-job { flex-direction:column; padding:16px; gap:12px; } .processing-thumb { flex:auto; width:130px; } .processing-heading { flex-wrap:wrap; } .processing-toolbar { align-items:stretch; } .processing-toolbar input,.processing-toolbar select { max-width:100%; } .processing-indicator { display:none; } .landing-processing { top:70px; } }
 /* ==========================================================================
    BMG.CLIP-V3 — modern design system (dark default + light theme), responsive.
    Tokens drive everything; components read from var(--…) so a token swap
