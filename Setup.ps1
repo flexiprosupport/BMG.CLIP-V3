@@ -157,8 +157,8 @@ try {
     try { Invoke-Checked $node @("--input-type=module", "-e", "import {createCanvas} from '@napi-rs/canvas'; import {templates} from './engine.mjs'; if(templates.length !== 85 || createCanvas(8,8).data().length !== 256) throw Error('Caption renderer check failed');") }
     finally { Pop-Location }
     if (-not $InstallerMode) {
-        Add-DesktopShortcut "BMG.CLIP-V3 Preview" "BMG.CLIP-V3.vbs"
-        Add-DesktopShortcut "Stop BMG.CLIP-V3 Preview" "Stop BMG.CLIP-V3.vbs"
+        Add-DesktopShortcut "BMG.CLIP-V3" "BMG.CLIP-V3.vbs"
+        Add-DesktopShortcut "Stop BMG.CLIP-V3" "Stop BMG.CLIP-V3.vbs"
     }
     Write-Host ""
     Write-Host "Setup complete. Keep this app folder in place: the shortcuts use it."

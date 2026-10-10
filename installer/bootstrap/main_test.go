@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -53,6 +54,29 @@ for _, name := range []string{"app/main.py", "app/clipper.py", "Setup.ps1", "web
 		if _, err := os.Stat(filepath.Join(root, "web", "dist", filepath.FromSlash(asset[1:]))); err != nil {
 			t.Fatal("missing dashboard bundle", asset, err)
 		}
+	}
+}
+
+func TestVisibleAppName(t *testing.T) {
+	root := t.TempDir()
+	if err := extract(payload, root); err != nil {
+		t.Fatal(err)
+	}
+	setup, err := os.ReadFile(filepath.Join(root, "Setup.ps1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, label := range []string{`Add-DesktopShortcut "BMG.CLIP-V3"`, `Add-DesktopShortcut "Stop BMG.CLIP-V3"`} {
+		if !strings.Contains(string(setup), label) {
+			t.Fatal("missing exact shortcut label:", label)
+		}
+	}
+	if strings.Contains(string(setup), "BMG.CLIP-V3 Preview") {
+		t.Fatal("old visible app label remains")
+	}
+	info, err := os.ReadFile(filepath.Join(root, "INSTALLER-INFO.txt"))
+	if err != nil || !strings.HasPrefix(string(info), "BMG.CLIP-V3\n") {
+		t.Fatal("incorrect installer identity", err)
 	}
 }
 

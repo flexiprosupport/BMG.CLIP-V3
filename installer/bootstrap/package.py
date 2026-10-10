@@ -44,7 +44,7 @@ with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compressleve
         archive.write(source, name)
     archive.writestr(
         "INSTALLER-INFO.txt",
-        f"BMG.CLIP-V3 Windows Preview\nSource revision: {revision}\n"
+        f"BMG.CLIP-V3\nSource revision: {revision}\n"
         "Native Windows x64 online setup executable; app files are embedded.\n"
         "Python and Node caption packages are installed during setup. Missing Python/FFmpeg/Node require confirmation.\n"
         "Unsigned build. A complete installation on a Windows PC has not been verified here.\n",

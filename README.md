@@ -26,13 +26,13 @@ The native **BMG.CLIP-V3-Setup.exe** is a Windows x64 console-based online
 installer. It embeds the app files, installs them under the current account's
 Local AppData Programs folder, and starts guided dependency/desktop-shortcut
 setup. Internet is required for Python/Node packages; missing Python/FFmpeg/Node require
-confirmation. The preview EXE is unsigned. Compilation and archive-extraction
+confirmation. The installer EXE is unsigned. Compilation and archive-extraction
 tests do not establish that installation on every Windows PC succeeds.
 
 For guided desktop setup on Windows 10/11, extract the full ZIP to a permanent
 folder (for example, a folder on your Desktop), then double-click `Setup.cmd`.
 Confirm the setup prompts. It creates a local `.venv`, installs the required
-Python packages, and creates **BMG.CLIP-V3 Preview** and **Stop BMG.CLIP-V3 Preview**
+Python packages, and creates **BMG.CLIP-V3** and **Stop BMG.CLIP-V3**
 desktop shortcuts without replacing existing shortcuts. Missing 64-bit Python
 3.11 or FFmpeg can be installed through WinGet, with your confirmation; WinGet
 requires Microsoft's App Installer. The guided setup accepts 64-bit Python
@@ -125,7 +125,7 @@ For frontend development, run the backend and `npm run dev` in separate terminal
 Personal videos, generated clips, transcripts, music uploads, additional downloaded
 fonts/models, and Python/FFmpeg/Node runtimes are created or supplied locally.
 When updating an existing installation, finish exports and use **Stop
-BMG.CLIP-V3 Preview** before running Setup, then launch the new shortcut.
+BMG.CLIP-V3** before running Setup, then launch the new shortcut.
 Closing the browser alone does not stop the old backend.
 
 The standalone caption-library navigation and landing browse button remain

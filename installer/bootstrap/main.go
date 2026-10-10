@@ -179,12 +179,17 @@ func install(reader *bufio.Reader) error {
 	if local == "" || !filepath.IsAbs(local) {
 		return errors.New("Windows did not provide a valid LOCALAPPDATA folder")
 	}
-	destination := filepath.Join(local, "Programs", "BMG.CLIP-V3-Preview")
-	fmt.Println("BMG.CLIP-V3 Windows Setup - Preview")
+destination := filepath.Join(local, "Programs", "BMG.CLIP-V3")
+// Reuse an earlier installation so changing the visible name never loses data.
+legacyDestination := filepath.Join(local, "Programs", "BMG.CLIP-V3-Preview")
+if _, err := os.Stat(legacyDestination); err == nil {
+destination = legacyDestination
+}
+fmt.Println("BMG.CLIP-V3 Setup")
 	fmt.Println("Includes 104 caption styles, background-blur intensity, and free caption dragging.")
 	fmt.Println("This is an unsigned online installer. Internet access is required for packages.")
 	fmt.Println("Missing Python, FFmpeg and Node.js will require separate confirmation.")
-	fmt.Println("Before updating, finish any exports and use the Stop BMG.CLIP-V3 Preview shortcut.")
+fmt.Println("Before updating, finish any exports and stop the previous BMG.CLIP-V3 app.")
 	fmt.Println("Your existing videos and models will not be deleted.")
 	fmt.Printf("\nInstallation folder: %s\n", destination)
 	if _, err := os.Lstat(destination); err == nil {
@@ -211,7 +216,7 @@ func install(reader *bufio.Reader) error {
 	if err := command.Run(); err != nil {
 		return fmt.Errorf("dependency setup did not finish: %w\nApp files and setup logs are in %s. Run Setup.cmd there to retry", err, destination)
 	}
-	fmt.Println("\nSetup finished. Use the BMG.CLIP-V3 Preview desktop shortcut to open the app.")
+fmt.Println("\nSetup finished. Use the BMG.CLIP-V3 desktop shortcut to open the app.")
 	return nil
 }
 
