@@ -28,15 +28,34 @@ MODELS_DIR = ROOT_DIR / "models"
 FFMPEG_DIR = ROOT_DIR / "ffmpeg"
 
 import os
+import shutil
+import subprocess
 if "HF_HOME" not in os.environ:
     os.environ["HF_HOME"] = str(MODELS_DIR)
 
 
 def ensure_ffmpeg() -> None:
-    """Ensure ffmpeg is on PATH if bundled in ROOT_DIR / 'ffmpeg'."""
-    if (FFMPEG_DIR / "ffmpeg.exe").is_file() or (FFMPEG_DIR / "ffmpeg").is_file():
-        if str(FFMPEG_DIR) not in os.environ.get("PATH", ""):
-            os.environ["PATH"] = str(FFMPEG_DIR) + os.pathsep + os.environ.get("PATH", "")
+    """Prefer actual bundled tools; keep system-installed tools discoverable."""
+    for directory in (FFMPEG_DIR / "bin", FFMPEG_DIR):
+        if any((directory/name).is_file() for name in ("ffmpeg.exe","ffmpeg","ffprobe.exe","ffprobe")):
+            entries=os.environ.get("PATH","").split(os.pathsep)
+            entries=[entry for entry in entries if os.path.normcase(entry)!=os.path.normcase(str(directory))]
+            os.environ["PATH"]=os.pathsep.join([str(directory),*entries])
+
+
+def require_ffmpeg() -> None:
+    """Fail before downloading, with a dependency error rather than a bad-URL error."""
+    ensure_ffmpeg()
+    for name in ("ffmpeg","ffprobe"):
+        executable=shutil.which(name)
+        if not executable:
+            raise RuntimeError(f"{name} is not available to the app. Run the latest BMG.CLIP-V3 Setup to install or repair FFmpeg, reopen the desktop app, then Retry this job.")
+        try:
+            result=subprocess.run([executable,"-version"],capture_output=True,timeout=10)
+        except (OSError,subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(f"{name} was found but could not start. Run BMG.CLIP-V3 Setup to repair it, reopen the app, then Retry this job.") from exc
+        if result.returncode:
+            raise RuntimeError(f"{name} failed its version check. Run BMG.CLIP-V3 Setup to repair it, reopen the app, then Retry this job.")
 
 
 def ensure_dirs() -> None:

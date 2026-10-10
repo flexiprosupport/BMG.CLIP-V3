@@ -22,6 +22,13 @@ A local AI video clipping app with a React dashboard, Whisper transcription, sty
 
 ## Background processing and batches
 
+**FFmpeg discovery:** the downloader uses PATH (including actual bundled tools in
+`ffmpeg/` or `ffmpeg/bin/`) rather than forcing an empty app-local directory.
+System/WinGet installations remain discoverable. FFmpeg and FFprobe must pass
+their version checks before a download starts; missing/broken dependencies show
+a repair instruction instead of blaming the source URL. After updating, use
+Retry on a failed Processing job to reuse its saved editor settings.
+
 **After an update:** the launcher checks the running backend's API contract and
 loaded-source fingerprint before reusing it. If an older instance is running,
 it asks before stopping that installation's process tree and launching the

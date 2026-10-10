@@ -17,7 +17,7 @@ from typing import Callable, Optional
 import yt_dlp
 
 from .models import InvalidVideoURLError
-from .paths import DOWNLOADS_DIR, FFMPEG_DIR
+from .paths import DOWNLOADS_DIR, require_ffmpeg
 
 logger = logging.getLogger(__name__)
 
@@ -172,9 +172,9 @@ def download_video(
                     logger.warning("Could not remove cancelled download %s", partial)
         raise DownloadCancelled()
 
-    # Ensure FFmpeg is on PATH for yt-dlp DASH stream merging
-    if FFMPEG_DIR.is_dir() and str(FFMPEG_DIR) not in os.environ.get("PATH", ""):
-        os.environ["PATH"] = str(FFMPEG_DIR) + os.pathsep + os.environ.get("PATH", "")
+    # Resolve bundled OR system tools. An empty app/ffmpeg directory must never
+    # override PATH: yt-dlp treats ffmpeg_location as an exclusive search path.
+    require_ffmpeg()
 
     base_opts = {
         # Prefer the best stream up to 1080p (plenty for shorts, avoids slow 4K
@@ -185,7 +185,6 @@ def download_video(
             "bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best"
         ),
         "format_sort": ["res:1080", "br", "fps", "codec:h264:vp9"],
-        "ffmpeg_location": str(FFMPEG_DIR) if FFMPEG_DIR.is_dir() else None,
         "merge_output_format": "mp4",
         "outtmpl": out_template,
         "noplaylist": True,
