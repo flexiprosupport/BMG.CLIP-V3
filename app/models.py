@@ -53,11 +53,13 @@ class FitMode(str, Enum):
     """How the source is fitted into the target frame.
 
     - crop:   scale to *cover* the chosen aspect ratio, then center-crop (fills it).
+    - blur:   keep the full source visible over a cover-scaled, blurred backdrop.
     - square: force a 1:1 square frame and center-crop to fill it. The chosen
               aspect_ratio is IGNORED in this mode.
     """
 
     CROP = "crop"
+    BLUR = "blur"
     SQUARE = "square"
 
 
