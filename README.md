@@ -19,6 +19,13 @@ A local AI video clipping app with a React dashboard, Whisper transcription, sty
 
 ## Run on Windows
 
+An online **BMG.CLIP-V3-Setup.exe** can be built by the Windows installer workflow
+and downloaded from this private repository's preview release. It installs the
+app for the current Windows account and adds desktop shortcuts. Internet is
+required for dependency installation; missing Python/FFmpeg require confirmation.
+The preview EXE is unsigned. Installer compilation and PowerShell syntax checks
+do not establish that installation on every Windows PC succeeds.
+
 For guided desktop setup on Windows 10/11, extract the full ZIP to a permanent
 folder (for example, a folder on your Desktop), then double-click `Setup.cmd`.
 Confirm the setup prompts. It creates a local `.venv`, installs the required
