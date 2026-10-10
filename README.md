@@ -19,6 +19,21 @@ A local AI video clipping app with a React dashboard, Whisper transcription, sty
 
 ## Run on Windows
 
+For guided desktop setup on Windows 10/11, extract the full ZIP to a permanent
+folder (for example, a folder on your Desktop), then double-click `Setup.cmd`.
+Confirm the setup prompts. It creates a local `.venv`, installs the required
+Python packages, and creates **BMG.CLIP-V3 Preview** and **Stop BMG.CLIP-V3 Preview**
+desktop shortcuts without replacing existing shortcuts. Missing 64-bit Python
+3.11 or FFmpeg can be installed through WinGet, with your confirmation; WinGet
+requires Microsoft's App Installer. The guided setup accepts 64-bit Python
+3.11–3.13. Internet access is needed during setup and for first-use models/fonts.
+Keep the extracted folder in place because the shortcuts point to it.
+
+The setup launcher has not been verified on a Windows machine here. If it fails,
+it keeps the console open and saves a `setup-*.log` in the app folder.
+
+For manual setup:
+
 Install Python 3.11 or newer and FFmpeg (including ffprobe). Both must be available on PATH. From this repository folder:
 
 ```powershell

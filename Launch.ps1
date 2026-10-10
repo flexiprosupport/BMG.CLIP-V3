@@ -9,7 +9,9 @@ $Root = $PSScriptRoot
 if (-not $Root) { $Root = Split-Path -Parent $MyInvocation.MyCommand.Definition }
 if (-not $Root) { $Root = (Get-Location).Path }
 
-$env:PATH = "$Root\ffmpeg;$Root\python;$env:PATH"
+$machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$env:PATH = "$Root\ffmpeg;$Root\python;$machinePath;$userPath;$env:PATH"
 $env:HF_HOME = "$Root\models"
 $env:HF_HUB_DISABLE_TELEMETRY = "1"
 
