@@ -26,6 +26,12 @@ if (-not (Test-Path $py)) {
 # 1. Check if an instance of THIS installation is already running
 $portFile = Join-Path $Root ".port"
 $pidFile = Join-Path $Root ".pid"
+$expectedFingerprint = (& $py -c "import hashlib,pathlib,sys; r=pathlib.Path(sys.argv[1]); e=[p.name+':'+hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(r.glob('*.py'),key=lambda p:p.name)]; print(hashlib.sha256('|'.join(e).encode('utf-8')).hexdigest())" (Join-Path $Root "app") | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $expectedFingerprint -notmatch '^[0-9a-f]{64}$') {
+  Add-Type -AssemblyName System.Windows.Forms
+  [System.Windows.Forms.MessageBox]::Show("Cannot verify the installed app files. Please run the latest BMG.CLIP-V3 Setup again.", "BMG.CLIP-V3 Error")
+  exit 1
+}
 
 if ((Test-Path $portFile) -and (Test-Path $pidFile)) {
   try {
@@ -35,8 +41,22 @@ if ((Test-Path $portFile) -and (Test-Path $pidFile)) {
     if ($proc -and $proc.Path -ieq $py) {
       $r = Invoke-WebRequest -Uri "http://127.0.0.1:$savedPort/health" -UseBasicParsing -TimeoutSec 2
       if ($r.StatusCode -eq 200 -and $r.Content -match '"status":\s*"ok"') {
-        Start-Process "http://127.0.0.1:$savedPort"
-        exit 0
+        $health = $r.Content | ConvertFrom-Json
+        if ($health.api_contract -eq 3 -and $health.source_fingerprint -eq $expectedFingerprint) {
+          Start-Process "http://127.0.0.1:$savedPort"
+          exit 0
+        }
+        Add-Type -AssemblyName System.Windows.Forms
+        $answer = [System.Windows.Forms.MessageBox]::Show("An older BMG.CLIP-V3 backend is still running. Restart it to finish the update? Current processing will be interrupted; completed clips are kept. Choose No to leave it running.", "BMG.CLIP-V3 Update", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { exit 0 }
+        # Only terminate the process already verified to use THIS installation's Python.
+        & "$env:WINDIR\System32\taskkill.exe" /PID $savedPid /T /F | Out-Null
+        Start-Sleep -Seconds 1
+        if (Get-Process -Id $savedPid -ErrorAction SilentlyContinue) {
+          [System.Windows.Forms.MessageBox]::Show("The old backend could not be stopped. Close it using Stop BMG.CLIP-V3, then reopen the app.", "BMG.CLIP-V3 Update")
+          exit 1
+        }
+        Remove-Item $pidFile, $portFile -Force -ErrorAction SilentlyContinue
       }
     }
   } catch {}
@@ -95,7 +115,8 @@ for ($i = 0; $i -lt 600; $i++) {
   }
   try {
     $r = Invoke-WebRequest -Uri "http://127.0.0.1:$chosenPort/health" -UseBasicParsing -TimeoutSec 2
-    if ($r.StatusCode -eq 200 -and $r.Content -match '"status":\s*"ok"' -and $serverProc -and -not $serverProc.HasExited) { $ready = $true; break }
+    $health = $r.Content | ConvertFrom-Json
+    if ($r.StatusCode -eq 200 -and $health.status -eq "ok" -and $health.api_contract -eq 3 -and $health.source_fingerprint -eq $expectedFingerprint -and $serverProc -and -not $serverProc.HasExited) { $ready = $true; break }
   } catch {}
   Start-Sleep -Seconds 1
 }

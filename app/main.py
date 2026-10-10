@@ -26,6 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from .runtime import API_CONTRACT, LOADED_FINGERPRINT
 
 from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, transcriber, uploads, resources, job_store, source_security
 from .clipper import ClipOptions, generate_clip
@@ -97,7 +98,8 @@ if (WEB_DIST_DIR / "assets").is_dir():
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "device": transcriber.get_device()}
+    return {"status": "ok", "device": transcriber.get_device(),
+            "api_contract":API_CONTRACT,"source_fingerprint":LOADED_FINGERPRINT}
 
 
 @app.get("/api/model-status")

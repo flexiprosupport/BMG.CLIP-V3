@@ -46,7 +46,9 @@ export default function Processing({processing,onLibrary}){
     <p className="note">{processing.connected?"Live updates":"Reconnecting; polling backend…"} · {processing.counts.running||0} processing · {processing.counts.queued||0} queued · {processing.total} jobs in history. Percentages and ETA refer to the current measurable stage, not an invented whole-job percentage.</p>
     {processing.total>processing.jobs.length&&<p className="note">Showing the latest {processing.jobs.length} jobs.</p>}
     {error&&<div className="error">{error}</div>}
-    {!jobs.length&&<div className="empty">No matching jobs. Configure a video in Create, then choose Start Processing.</div>}
+    {processing.error&&<div className="error" role="alert">{processing.error} <button className="btn btn-ghost" onClick={processing.refresh}>Retry connection</button></div>}
+    {processing.loading&&!processing.jobs.length&&<div className="empty" role="status">Loading saved processing jobs…</div>}
+    {!processing.loading&&!processing.error&&!jobs.length&&<div className="empty">No matching jobs. Configure a video in Create, then choose Start Processing.</div>}
     {[...groups].map(([id,items])=>{
       const full=processing.jobs.filter(j=>j.batch_id===id);
       const batch=processing.batches.find(b=>b.id===id);

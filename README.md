@@ -22,6 +22,20 @@ A local AI video clipping app with a React dashboard, Whisper transcription, sty
 
 ## Background processing and batches
 
+**After an update:** the launcher checks the running backend's API contract and
+loaded-source fingerprint before reusing it. If an older instance is running,
+it asks before stopping that installation's process tree and launching the
+updated backend. Restart interrupts active processing, but keeps completed clips.
+On current queue-enabled releases, interrupted queued work is recovered.
+If a stale browser tab reports missing link validation, use **Stop BMG.CLIP-V3**
+and reopen the desktop app (after finishing any work you wish to preserve).
+Start Processing checks backend compatibility before submitting, confirms the
+saved job, and inserts the confirmation into the shared dashboard immediately.
+Failed confirmation keeps editor settings and the idempotent submission token.
+Dashboard request/feed errors are displayed instead of a misleading empty list;
+the Retry connection button requests an immediate refresh. Both single-video and
+batch submission use this check.
+
 - **Processing** sits between Library and Settings. Its live badge counts
   queued/active videos; a single reconnecting SSE feed keeps every page current.
 - Configure the video(s), captions, blur, effects, music and signature, then

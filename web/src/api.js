@@ -3,7 +3,7 @@
 
 async function jget(path) {
   const r = await fetch(path);
-  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+  if (!r.ok) {const error=new Error(`${path} → ${r.status}`);error.status=r.status;throw error}
   return r.json();
 }
 
@@ -18,6 +18,21 @@ async function jpost(path, body) {
   return data;
 }
 
+const restartMessage="The app interface was updated, but an older or incompatible backend is running. Use Stop BMG.CLIP-V3, then reopen BMG.CLIP-V3 from your desktop. If needed, install the latest Setup.";
+async function requireCurrentBackend(){
+  const health=await jget("/health");
+  if(health.api_contract!==3)throw new Error(restartMessage);
+}
+function validQueue(value){
+  if(!Array.isArray(value?.jobs)||!value.counts||!Array.isArray(value.batches))throw new Error("The backend returned an invalid Processing response. "+restartMessage);
+  return value;
+}
+async function queueState(limit=1000){
+  try{return validQueue(await jget(`/api/jobs?limit=${limit}`))}
+  catch(error){if(error.status===404||error.status===405)throw new Error("Processing is unavailable in the running backend. "+restartMessage);throw error}
+}
+async function requireQueue(){await requireCurrentBackend();await queueState(1)}
+
 export const api = {
   health: () => jget("/health"),
   modelStatus: () => jget("/api/model-status"),
@@ -27,10 +42,34 @@ export const api = {
   captionStyles: () => jget("/api/caption-styles"),
   fonts: () => jget("/api/fonts"),
   history: () => jget("/api/history"),
-  generate: (payload) => jpost("/api/generate", payload),
-  jobs: () => jget("/api/jobs?limit=1000"),
-  batch: (payload) => jpost("/api/batches",payload),
-  validateLinks: (urls) => jpost("/api/jobs/validate",{urls}),
+  generate: async (payload) => {
+    await requireQueue();
+    const receipt=await jpost("/api/generate",payload);
+    try{
+      if(!receipt.job_id)throw Error("Missing job id");
+      const job=await jget(`/api/jobs/${receipt.job_id}`);
+      if(job.id!==receipt.job_id)throw Error("Job id mismatch");
+      return {...receipt,job};
+    }catch(error){throw new Error("Processing was requested, but the backend could not confirm the saved job. Your editor settings are kept. Retry with the same settings to avoid duplicates, or open Processing. "+error.message)}
+  },
+  jobs: queueState,
+  batch: async (payload) => {
+    await requireQueue();
+    const receipt=await jpost("/api/batches",payload);
+    try{
+      const saved=await jget(`/api/batches/${receipt.batch_id}`);
+      if(!saved.jobs?.length)throw Error("No saved jobs");
+      return {...receipt,jobs:saved.jobs};
+    }catch(error){throw new Error("The batch was requested, but its saved jobs could not be confirmed. Your editor settings are kept. Retry with the same settings to avoid duplicates. "+error.message)}
+  },
+  validateLinks: async (urls) => {
+    await requireCurrentBackend();
+    try{return await jpost("/api/jobs/validate",{urls})}
+    catch(error){
+      if(error.message==="Not Found")throw new Error("The running backend is missing link validation. Stop BMG.CLIP-V3 and reopen the updated desktop app.");
+      throw error;
+    }
+  },
   retryJob: (id) => jpost(`/api/jobs/${id}/retry`,{}),
   queueSettings: () => jget("/api/jobs/settings"),
   saveQueueSettings: (values) => jpost("/api/jobs/settings",values),

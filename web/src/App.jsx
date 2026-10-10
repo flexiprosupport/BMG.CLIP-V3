@@ -199,7 +199,7 @@ export default function App() {
             <span className="orb orb-5" />
           </div>
           {modelStatus.status!=="ready"&&<div className="queue-model-banner" role="status">{modelStatus.message||"Preparing local AI engine…"} {modelStatus.status==="error"&&<button className="btn btn-ghost" onClick={handleRetry}>Retry engine</button>}</div>}
-          <div hidden={page!=="create"}><Create key="create" step={step} setStep={setStep} onSubmitted={()=>setPage(current=>current==="create"?"processing":current)} onProcessing={()=>go("processing")} /></div>
+          <div hidden={page!=="create"}><Create key="create" step={step} setStep={setStep} onSubmitted={jobs=>{processing.acceptJobs(jobs);setPage(current=>current==="create"?"processing":current);processing.refresh()}} onProcessing={()=>go("processing")} /></div>
           {page === "library" && <Library focusClipId={libraryFocus} processingRevision={processing.jobs.reduce((n,j)=>n+j.generated_clips,0)} />}
           {page === "processing"&&<Processing processing={processing} onLibrary={id=>{setLibraryFocus(id);go("library")}}/>}
           {page === "settings" && <Settings />}

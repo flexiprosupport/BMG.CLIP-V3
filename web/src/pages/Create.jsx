@@ -291,15 +291,15 @@ export default function Create({ step, setStep, onSubmitted, onProcessing }) {
       if(isBatch){
         const check=await api.validateLinks(urls);
         if(check.invalid.length)throw Error(check.invalid.map(v=>v.error).join(" · "));
-        await api.batch({title:`Batch · ${check.valid.length} videos`,jobs:check.valid.map((video_url,i)=>{
+        const receipt=await api.batch({title:`Batch · ${check.valid.length} videos`,jobs:check.valid.map((video_url,i)=>{
           const job={...payload,...videoOverrides[video_url],video_url,submission_id:`${submissionToken.current}:${i}`};
           delete job.upload_id;delete job.upload_name;delete job.download_id;return job;
         })});
-        setBusy(false);submissionToken.current=null;restart();onSubmitted?.();return;
+        setBusy(false);submissionToken.current=null;restart();onSubmitted?.(receipt.jobs);return;
       }
-      const { job_id } = await api.generate(payload);
+      const { job_id,job } = await api.generate(payload);
       jobRef.current = job_id;
-      setBusy(false);submissionToken.current=null;restart();onSubmitted?.();
+      setBusy(false);submissionToken.current=null;restart();onSubmitted?.([job]);
     } catch (e) { if (epoch === generationEpoch.current) { setBusy(false); setError(e.message); } }
   }
 
