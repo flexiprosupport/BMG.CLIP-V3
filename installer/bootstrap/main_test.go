@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 )
 
@@ -35,10 +36,22 @@ func TestEmbeddedPayload(t *testing.T) {
 	if err := extract(payload, root); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"app/main.py", "app/clipper.py", "Setup.ps1",
-		"web/dist/assets/index-CFA6Jhjf.js", "web/dist/assets/index-CcqQpZcQ.css"} {
+	for _, name := range []string{"app/main.py", "app/clipper.py", "Setup.ps1", "web/dist/index.html"} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(name))); err != nil {
 			t.Fatal(name, err)
+		}
+	}
+	index, err := os.ReadFile(filepath.Join(root, "web", "dist", "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assets := regexp.MustCompile(`/assets/[^"']+\.(js|css)`).FindAllString(string(index), -1)
+	if len(assets) < 2 {
+		t.Fatal("built dashboard does not reference its JS and CSS bundles")
+	}
+	for _, asset := range assets {
+		if _, err := os.Stat(filepath.Join(root, "web", "dist", filepath.FromSlash(asset[1:]))); err != nil {
+			t.Fatal("missing dashboard bundle", asset, err)
 		}
 	}
 }

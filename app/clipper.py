@@ -109,7 +109,8 @@ class ClipOptions:
     ass_path: Path
     clip_id: str
     index: int
-    blur_strength: float = 50.0        # 0-100, blur fit mode only
+    blur_strength: float = 50.0        # 0-100 for blurred fill and square backdrop
+    background_blur: bool = False     # optional backdrop behind the square card
     square_corners: str = "round"      # "round" | "square" — square fit mode only
     bar_text: Optional[str] = None
     bar_text_color: str = "#FFFFFF"     # square title colour
@@ -336,10 +337,14 @@ def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
     w, h = _SQUARE_CANVAS
     mx, my = (w - s) // 2, (h - s) // 2
 
+    backdrop = (
+        f"gblur=sigma={max(0.0, min(100.0, float(opts.blur_strength))) * 0.48:.2f}:steps=2"
+        if opts.background_blur else "drawbox=0:0:iw:ih:black:t=fill"
+    )
     stages = [
         "[0:v]split[base][fg]",
         f"[base]scale={w}:{h}:force_original_aspect_ratio=increase,"
-        f"crop={w}:{h},drawbox=0:0:iw:ih:black:t=fill[bg]",
+        f"crop={w}:{h},{backdrop}[bg]",
         f"[fg]scale={s}:{s}:force_original_aspect_ratio=increase,"
         f"{_crop_filter(s, s, opts.reframe)}[fgsq]",
     ]

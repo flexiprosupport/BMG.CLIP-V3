@@ -41,6 +41,7 @@ export default function Create({ step, setStep }) {
   // Output
   const [aspect, setAspect] = useState("9:16");
   const [fit, setFit] = useState("crop");
+  const [backgroundBlur, setBackgroundBlurState] = useState(false);
   const [blurStrength, setBlurStrength] = useState(50);
   const [barText, setBarText] = useState("");
   const [barTextColor, setBarTextColor] = useState("#FFFFFF");
@@ -52,10 +53,14 @@ export default function Create({ step, setStep }) {
   const [squareCorners, setSquareCorners] = useState("round");
 
   const outputAspect = fit === "square" ? "1:1" : aspect;
+  function changeBackgroundBlur(enabled) {
+    setBackgroundBlurState(enabled);
+    setFit((current) => current === "square" ? "square" : enabled ? "blur" : "crop");
+  }
   function setOutputAspect(v) {
     if (v === "1:1") setFit("square");
     else {
-      setFit((current) => current === "square" ? "crop" : current);
+      setFit(backgroundBlur ? "blur" : "crop");
       setAspect(v);
     }
   }
@@ -220,6 +225,7 @@ export default function Create({ step, setStep }) {
     setError("");
     const payload = {
       aspect_ratio: aspect, fit_mode: fit,
+      background_blur: backgroundBlur,
       blur_strength: blurStrength,
       bar_text: fit === "square" ? (barText.trim() || null) : null,
       bar_text_color: barTextColor, bar_text_anim: barTextAnim,
@@ -334,7 +340,8 @@ export default function Create({ step, setStep }) {
       {step === 2 && (
         <Screen2Settings
           media={media} sourceReady={sourceReady} prepView={prepView}
-          outputAspect={outputAspect} setOutputAspect={setOutputAspect} setFit={setFit}
+          outputAspect={outputAspect} setOutputAspect={setOutputAspect}
+          backgroundBlur={backgroundBlur} setBackgroundBlur={changeBackgroundBlur}
           blurStrength={blurStrength} setBlurStrength={setBlurStrength}
           squareCorners={squareCorners} setSquareCorners={setSquareCorners}
           barText={barText} setBarText={setBarText} barTextColor={barTextColor} setBarTextColor={setBarTextColor}
@@ -354,7 +361,8 @@ export default function Create({ step, setStep }) {
           studio={studio} language={language} onFontUpload={onFontUpload}
           media={media} prepView={prepView} sourceReady={sourceReady}
           transcript={transcript} curTime={curTime} seekTo={seekTo} videoRef={videoRef} duration={vidDuration}
-          aspect={aspect} fit={fit} blurStrength={blurStrength} barText={barText} signature={signature} setSig={setSig}
+          aspect={aspect} fit={fit} backgroundBlur={backgroundBlur} setBackgroundBlur={changeBackgroundBlur}
+          blurStrength={blurStrength} setBlurStrength={setBlurStrength} barText={barText} signature={signature} setSig={setSig}
           onBack={() => setStep(2)} onNext={() => setStep(4)}
         />
       )}
@@ -362,7 +370,8 @@ export default function Create({ step, setStep }) {
       {step === 4 && (
         <Screen4Effects
           studio={studio} language={language} media={media} sourceReady={sourceReady}
-          aspect={aspect} fit={fit} blurStrength={blurStrength} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
+          aspect={aspect} fit={fit} backgroundBlur={backgroundBlur} setBackgroundBlur={changeBackgroundBlur}
+          blurStrength={blurStrength} setBlurStrength={setBlurStrength} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
           signature={signature} setSig={setSig} videoRef={videoRef}
           onBack={() => setStep(3)} onNext={() => setStep(5)}
         />
@@ -375,7 +384,7 @@ export default function Create({ step, setStep }) {
           onTrack={(t) => { setMusicTrack(t); setMusicStart(0); }} onVolume={setMusicVolume} onDuck={setMusicDuck} onStart={setMusicStart}
           onMusicUpload={onMusicUpload} onRefreshMusic={refreshMusic}
           studio={studio} language={language} media={media} sourceReady={sourceReady}
-          aspect={aspect} fit={fit} blurStrength={blurStrength} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
+          aspect={aspect} fit={fit} backgroundBlur={backgroundBlur} blurStrength={blurStrength} barText={barText} barTextColor={barTextColor} barTextAnim={barTextAnim}
           signature={signature} setSig={setSig} videoRef={videoRef}
           onBack={() => setStep(4)} onNext={() => setStep(6)}
         />

@@ -1,13 +1,15 @@
 import Cinematic from "../../components/Cinematic.jsx";
 import SignaturePane from "../../components/SignaturePane.jsx";
 import PhonePreview from "../../components/PhonePreview.jsx";
+import BackgroundBlurControl from "../../components/BackgroundBlurControl.jsx";
 
 // Screen 4 — Cinematic Effects. Colour grade, gradients, glow, vignette,
 // grain, letterbox bars, plus the signature/watermark overlay — all the
 // "extra visual enhancement" controls live here, away from the core caption
 // styling on Screen 3.
 export default function Screen4Effects({
-  studio, language, media, sourceReady, aspect, fit, blurStrength, barText, barTextColor, barTextAnim, signature, setSig, videoRef,
+  studio, language, media, sourceReady, aspect, fit, backgroundBlur, setBackgroundBlur,
+  blurStrength, setBlurStrength, barText, barTextColor, barTextAnim, signature, setSig, videoRef,
   onBack, onNext,
 }) {
   return (
@@ -15,6 +17,8 @@ export default function Screen4Effects({
       <div className="w3-grid">
         <div className="card w3-left">
           <div className="card-h"><h2>Cinematic effects</h2></div>
+          <BackgroundBlurControl id="effects-background-blur" enabled={backgroundBlur} strength={blurStrength}
+            onEnabled={setBackgroundBlur} onStrength={setBlurStrength} />
           <div className="studio-pane" style={{ padding: "16px 0 0" }}>
             <Cinematic cinematic={studio.cinematic} setCine={studio.setCine} resetCine={studio.resetCine} />
           </div>
@@ -26,7 +30,7 @@ export default function Screen4Effects({
 
         <div className="w3-right">
           <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
-            preparing={!media && sourceReady} aspect={aspect} fit={fit} blurStrength={blurStrength} barText={barText}
+            preparing={!media && sourceReady} aspect={aspect} fit={fit} backgroundBlur={backgroundBlur} blurStrength={blurStrength} barText={barText}
             barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
             overrides={studio.overrides} setOverride={studio.setOverride} />

@@ -286,6 +286,9 @@ class GenerateRequest(BaseModel):
     )
     aspect_ratio: AspectRatio = AspectRatio.NINE_16
     fit_mode: FitMode = FitMode.CROP
+    background_blur: bool = Field(
+        default=False, description="Enable a blurred backdrop behind the square-card layout."
+    )
     blur_strength: float = Field(
         default=50, ge=0, le=100,
         description="Background blur strength from 0 to 100 (blur fit mode only).",

@@ -52,13 +52,14 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
-export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, blurStrength = 50, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef }) {
+export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, backgroundBlur = false, blurStrength = 50, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef }) {
   const screenRef = useRef(null);
   const dragCleanupRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [screenW, setScreenW] = useState(224);
   const reg = regions(aspect, fit);
-  const blurPx = Math.max(0, Math.min(100, blurStrength)) * 0.48 * screenW / (aspect === "16:9" ? 1920 : 1080);
+  const captionReg = fit === "square" ? regions("9:16", "crop") : reg;
+  const blurPx = Math.max(0, Math.min(100, blurStrength)) * 0.48 * screenW / (fit !== "square" && aspect === "16:9" ? 1920 : 1080);
 
   useEffect(() => () => { dragCleanupRef.current?.(); }, []);
 
@@ -92,7 +93,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
   // Square mode (un-dragged): caption sits in the black band JUST BELOW the square,
   // top-anchored — matching the burned render (title above, caption hugging below).
   const squareBelow = fit === "square" && !free;
-  const y = squareBelow ? (reg.top + reg.height + 2) : (reg.top + yFrac * reg.height);
+  const y = squareBelow ? (reg.top + reg.height + 2) : (captionReg.top + yFrac * captionReg.height);
 
   function onDown(e) {
     if (!setOverride || e.isPrimary === false || (e.button != null && e.button !== 0)) return;
@@ -109,7 +110,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
       const r = screenRef.current?.getBoundingClientRect();
       if (!r) return;
       let px = ((ev.clientX - r.left) / r.width) * 100 - offsetX;
-      let py = (((ev.clientY - r.top) / r.height) * 100 - offsetY - reg.top) / reg.height * 100;
+      let py = (((ev.clientY - r.top) / r.height) * 100 - offsetY - captionReg.top) / captionReg.height * 100;
       px = Math.max(0, Math.min(100, px));
       py = Math.max(0, Math.min(100, py));
       setOverride("pos_x", Math.round(px * 10) / 10);
@@ -146,6 +147,13 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
       <div ref={screenRef} className={"phone-screen" + (!media ? " empty" : "")}>
         <div className="island" />
         <div className="preview-pill"><span className="dot" />Preview</div>
+
+        {media?.kind === "video" && fit === "square" && backgroundBlur && (
+          <div className="square-blur-canvas">
+            <video className="media-blur-backdrop" style={{ filter: "blur(" + blurPx + "px)" }}
+              src={media.src} muted loop autoPlay playsInline aria-hidden="true" tabIndex={-1} />
+          </div>
+        )}
 
         {/* A link's embed fills the whole screen (just to confirm the source);
             once downloaded it becomes a real <video> in the clip region below. */}

@@ -1,5 +1,6 @@
 import { LANGS } from "../../caption.js";
 import PhonePreview from "../../components/PhonePreview.jsx";
+import BackgroundBlurControl from "../../components/BackgroundBlurControl.jsx";
 
 const ASPECTS = [["9:16", "9:16 Vertical"], ["16:9", "16:9 Landscape"], ["1:1", "1:1 Square"]];
 
@@ -10,8 +11,8 @@ const ASPECTS = [["9:16", "9:16 Vertical"], ["16:9", "16:9 Landscape"], ["1:1", 
 // every later screen previews the download here too, so the look stays
 // consistent across the whole wizard.
 export default function Screen2Settings({
-  media, sourceReady, prepView, outputAspect, setOutputAspect, setFit,
-  blurStrength, setBlurStrength,
+  media, sourceReady, prepView, outputAspect, setOutputAspect,
+  backgroundBlur, setBackgroundBlur, blurStrength, setBlurStrength,
   squareCorners, setSquareCorners, barText, setBarText, barTextColor, setBarTextColor,
   barTextAnim, setBarTextAnim, language, changeLanguage, device, setDevice, devices,
   numClips, setNumClips, clipLen, setClipLen,
@@ -31,24 +32,8 @@ export default function Screen2Settings({
             {ASPECTS.map(([v, l]) => <button key={v} className={outputAspect === v ? "active" : ""} onClick={() => setOutputAspect(v)}>{l}</button>)}
           </div>
 
-          {!isSquare && (
-            <>
-              <label className="fieldlabel">Video fill style</label>
-              <div className="toggle">
-                {[["crop", "Crop to fill"], ["blur", "Blurred fill"]].map(([mode, label]) => (
-                  <button key={mode} className={fit === mode ? "active" : ""} onClick={() => setFit(mode)}>{label}</button>
-                ))}
-              </div>
-              {fit === "blur" && (
-                <>
-                  <div className="note">Keeps the full video visible over a blurred background.</div>
-                  <label className="fieldlabel" htmlFor="background-blur-strength">Blur strength — {blurStrength}%</label>
-                  <input id="background-blur-strength" type="range" min="0" max="100" step="1"
-                    value={blurStrength} onChange={(e) => setBlurStrength(Number(e.target.value))} />
-                </>
-              )}
-            </>
-          )}
+          <BackgroundBlurControl enabled={backgroundBlur} strength={blurStrength}
+            onEnabled={setBackgroundBlur} onStrength={setBlurStrength} />
 
           {isSquare && (
             <>
@@ -120,7 +105,7 @@ export default function Screen2Settings({
 
         <div className="w3-right">
           <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
-            preparing={!media && sourceReady} aspect={aspect} fit={fit} blurStrength={blurStrength} barText={barText}
+            preparing={!media && sourceReady} aspect={aspect} fit={fit} backgroundBlur={backgroundBlur} blurStrength={blurStrength} barText={barText}
             barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
             overrides={studio.overrides} setOverride={studio.setOverride} />
