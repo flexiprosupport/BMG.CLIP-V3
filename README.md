@@ -19,12 +19,12 @@ A local AI video clipping app with a React dashboard, Whisper transcription, sty
 
 ## Run on Windows
 
-An online **BMG.CLIP-V3-Setup.exe** can be built by the Windows installer workflow
-and downloaded from this private repository's preview release. It installs the
-app for the current Windows account and adds desktop shortcuts. Internet is
-required for dependency installation; missing Python/FFmpeg require confirmation.
-The preview EXE is unsigned. Installer compilation and PowerShell syntax checks
-do not establish that installation on every Windows PC succeeds.
+The native **BMG.CLIP-V3-Setup.exe** is a Windows x64 console-based online
+installer. It embeds the app files, installs them under the current account's
+Local AppData Programs folder, and starts guided dependency/desktop-shortcut
+setup. Internet is required for Python packages; missing Python/FFmpeg require
+confirmation. The preview EXE is unsigned. Compilation and archive-extraction
+tests do not establish that installation on every Windows PC succeeds.
 
 For guided desktop setup on Windows 10/11, extract the full ZIP to a permanent
 folder (for example, a folder on your Desktop), then double-click `Setup.cmd`.
@@ -62,6 +62,21 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+## Build the native Windows installer
+
+With Go and Python available, run `python installer/bootstrap/package.py` from
+the repository root. Then, from `installer/bootstrap`, run `go test ./...` and
+cross-compile:
+
+```bash
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o BMG.CLIP-V3-Setup.exe .
+```
+
+On Windows PowerShell, set `$env:GOOS="windows"`, `$env:GOARCH="amd64"`, and
+`$env:CGO_ENABLED="0"` before running the same `go build` command without its
+environment-variable prefixes. Generated payload ZIP/checksum and EXE files are
+build outputs, not source files to commit.
 
 ## Edit the dashboard
 
