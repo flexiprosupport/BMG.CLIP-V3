@@ -43,9 +43,36 @@ def ensure_ffmpeg() -> None:
             os.environ["PATH"]=os.pathsep.join([str(directory),*entries])
 
 
+def get_ffmpeg_location():
+    """Reuse a working existing installation, without copying user data."""
+    candidates=[FFMPEG_DIR,FFMPEG_DIR/"bin"]
+    executable=shutil.which("ffmpeg")
+    if executable:
+        candidates.append(Path(executable).resolve().parent)
+    local=os.environ.get("LOCALAPPDATA")
+    if local:
+        for name in ("BMG.CLIP-V3","BMG.CLIP-V3-Preview"):
+            folder=Path(local)/"Programs"/name/"ffmpeg"
+            candidates.extend((folder,folder/"bin"))
+    seen=set()
+    for folder in candidates:
+        if str(folder) in seen:continue
+        seen.add(str(folder))
+        binaries=[folder/(name+(".exe" if os.name=="nt" else "")) for name in ("ffmpeg","ffprobe")]
+        if not all(binary.is_file() for binary in binaries):continue
+        try:
+            if all(subprocess.run([str(binary),"-version"],capture_output=True,timeout=10).returncode==0 for binary in binaries):
+                entries=os.environ.get("PATH","").split(os.pathsep)
+                os.environ["PATH"]=os.pathsep.join([str(folder),*entries])
+                return str(folder)
+        except (OSError,subprocess.TimeoutExpired):continue
+    return None
+
+
 def require_ffmpeg() -> None:
     """Fail before downloading, with a dependency error rather than a bad-URL error."""
     ensure_ffmpeg()
+    get_ffmpeg_location()
     for name in ("ffmpeg","ffprobe"):
         executable=shutil.which(name)
         if not executable:

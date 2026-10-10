@@ -24,6 +24,11 @@ A local AI video clipping app with a React dashboard, Whisper transcription, sty
 
 **FFmpeg discovery:** the downloader uses PATH (including actual bundled tools in
 `ffmpeg/` or `ffmpeg/bin/`) rather than forcing an empty app-local directory.
+It also discovers verified FFmpeg/FFprobe pairs in the existing BMG.CLIP-V3 and
+BMG.CLIP-V3-Preview installations. When a working pair is found, the downloader
+uses main's explicit FFmpeg-location behavior with that verified directory.
+Only tool discovery/download behavior is reused; videos, models and databases
+are not moved between installations.
 System/WinGet installations remain discoverable. FFmpeg and FFprobe must pass
 their version checks before a download starts; missing/broken dependencies show
 a repair instruction instead of blaming the source URL. After updating, use

@@ -59,12 +59,24 @@ class FFmpegTests(unittest.TestCase):
                 paths.require_ffmpeg()
 
     def test_download_options_do_not_override_system_path(self):
-        with tempfile.TemporaryDirectory() as directory,patch.object(downloader,"DOWNLOADS_DIR",Path(directory)),patch.object(downloader,"require_ffmpeg"):
+        with tempfile.TemporaryDirectory() as directory,patch.object(downloader,"DOWNLOADS_DIR",Path(directory)),patch.object(downloader,"require_ffmpeg"),patch.object(downloader,"get_ffmpeg_location",return_value=None):
             token="a"*32
             (Path(directory)/(token+".mp4")).write_bytes(b"fixture")
             with patch.object(downloader.yt_dlp,"YoutubeDL") as ydl:
                 result=downloader.download_video("https://youtu.be/2AGegNK_dAY",download_token=token)
                 self.assertEqual(result.name,token+".mp4")
                 self.assertNotIn("ffmpeg_location",ydl.call_args.args[0])
+
+    def test_reuses_existing_install_tools(self):
+        ffmpeg=shutil.which("ffmpeg");ffprobe=shutil.which("ffprobe")
+        if not ffmpeg or not ffprobe:self.skipTest("Needs installed tools")
+        with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{"LOCALAPPDATA":directory,"PATH":""}):
+            folder=Path(directory)/"Programs"/"BMG.CLIP-V3-Preview"/"ffmpeg"/"bin"
+            folder.mkdir(parents=True)
+            (folder/"ffmpeg").symlink_to(ffmpeg);(folder/"ffprobe").symlink_to(ffprobe)
+            with patch.object(paths,"FFMPEG_DIR",Path(directory)/"empty"):
+                self.assertEqual(paths.get_ffmpeg_location(),str(folder))
+                with yt_dlp.YoutubeDL({"quiet":True,"ffmpeg_location":str(folder)}) as ydl:
+                    self.assertTrue(FFmpegMergerPP(ydl).available)
 
 if __name__=="__main__":unittest.main()

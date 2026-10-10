@@ -17,7 +17,7 @@ from typing import Callable, Optional
 import yt_dlp
 
 from .models import InvalidVideoURLError
-from .paths import DOWNLOADS_DIR, require_ffmpeg
+from .paths import DOWNLOADS_DIR, require_ffmpeg, get_ffmpeg_location
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +196,10 @@ def download_video(
         "max_filesize": 2 * 1024**3, "hls_prefer_native": True,
         "enable_file_urls": False,
     }
+    # Keep main's explicit-location behavior only for a VERIFIED tool pair.
+    # Includes tools from the other existing BMG desktop installation.
+    location=get_ffmpeg_location()
+    if location:base_opts["ffmpeg_location"]=location
     # External protocol downloaders could bypass the child process's socket
     # guard. Permit HTTP and native HLS/DASH only; FFmpeg merges local files.
     safe = '[protocol~="^(https?|m3u8_native|http_dash_segments)$"]'
