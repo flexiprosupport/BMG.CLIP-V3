@@ -5,6 +5,8 @@
   Missing Python/FFmpeg are installed through WinGet only after confirmation.
   Existing app folders, models, videos, and shortcuts are never deleted.
 #>
+param([switch]$InstallerMode)
+
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 Set-Location -LiteralPath $Root
@@ -108,7 +110,7 @@ try {
     Write-Host "Setup creates a local Python environment, downloads Python packages, and adds desktop shortcuts."
     Write-Host "It does not delete your videos, models, existing apps, or shortcuts."
     Write-Host "Internet access is required. First setup can take several minutes."
-    if (-not (Confirm-Action "Continue with setup?")) {
+    if (-not $InstallerMode -and -not (Confirm-Action "Continue with setup?")) {
         Write-Host "Cancelled. No prerequisites or Python packages were installed."
         exit 0
     }
@@ -137,12 +139,14 @@ try {
     }
     Invoke-Checked $venvPython @("-m", "pip", "install", "-r", (Join-Path $Root "requirements.txt"))
     Invoke-Checked $venvPython @("-c", "import fastapi, uvicorn, pydantic, yt_dlp, requests, faster_whisper, indic_transliteration")
-    Add-DesktopShortcut "BMG.CLIP-V3 Preview" "BMG.CLIP-V3.vbs"
-    Add-DesktopShortcut "Stop BMG.CLIP-V3 Preview" "Stop BMG.CLIP-V3.vbs"
+    if (-not $InstallerMode) {
+        Add-DesktopShortcut "BMG.CLIP-V3 Preview" "BMG.CLIP-V3.vbs"
+        Add-DesktopShortcut "Stop BMG.CLIP-V3 Preview" "Stop BMG.CLIP-V3.vbs"
+    }
     Write-Host ""
     Write-Host "Setup complete. Keep this app folder in place: the shortcuts use it."
     Write-Host "Whisper models and caption fonts download when first needed."
-    if (Confirm-Action "Open BMG.CLIP-V3 now?") {
+    if (-not $InstallerMode -and (Confirm-Action "Open BMG.CLIP-V3 now?")) {
         Start-Process -FilePath (Join-Path $env:WINDIR "System32\wscript.exe") -ArgumentList ('"' + (Join-Path $Root "BMG.CLIP-V3.vbs") + '"')
     }
 } catch {
