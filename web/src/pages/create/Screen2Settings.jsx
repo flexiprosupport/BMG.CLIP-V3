@@ -10,7 +10,7 @@ const ASPECTS = [["9:16", "9:16 Vertical"], ["16:9", "16:9 Landscape"], ["1:1", 
 // every later screen previews the download here too, so the look stays
 // consistent across the whole wizard.
 export default function Screen2Settings({
-  media, sourceReady, prepView, outputAspect, setOutputAspect,
+  media, sourceReady, prepView, outputAspect, setOutputAspect, setFit,
   squareCorners, setSquareCorners, barText, setBarText, barTextColor, setBarTextColor,
   barTextAnim, setBarTextAnim, language, changeLanguage, device, setDevice, devices,
   numClips, setNumClips, clipLen, setClipLen,
@@ -29,6 +29,18 @@ export default function Screen2Settings({
           <div className="toggle">
             {ASPECTS.map(([v, l]) => <button key={v} className={outputAspect === v ? "active" : ""} onClick={() => setOutputAspect(v)}>{l}</button>)}
           </div>
+
+          {!isSquare && (
+            <>
+              <label className="fieldlabel">Video fill style</label>
+              <div className="toggle">
+                {[["crop", "Crop to fill"], ["blur", "Blurred fill"]].map(([mode, label]) => (
+                  <button key={mode} className={fit === mode ? "active" : ""} onClick={() => setFit(mode)}>{label}</button>
+                ))}
+              </div>
+              {fit === "blur" && <div className="note">Keeps the full video visible over a blurred background.</div>}
+            </>
+          )}
 
           {isSquare && (
             <>
