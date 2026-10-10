@@ -1,25 +1,9 @@
 import { useState } from "react";
-import { captionLineStyle, effectiveCfg } from "../../caption.js";
 import Customizer from "../../components/Customizer.jsx";
 import PhonePreview from "../../components/PhonePreview.jsx";
 import Transcript from "../../components/Transcript.jsx";
 import { Icons } from "../../components/Icons.jsx";
 
-function Chip({ label, cfg, active, trending, custom, onClick, onDelete }) {
-  const words = (label || "Aa").split(/\s+/).slice(0, 2);
-  const style = captionLineStyle(cfg, { fontPx: 16, scale: 0.16 });
-  const hl = (cfg.animation === "highlight" || cfg.karaoke) ? words.length - 1 : -1;
-  return (
-    <button type="button" className={"chip" + (active ? " active" : "")} onClick={onClick}>
-      {custom ? <span className="tag custom">Custom</span> : trending ? <span className="tag">Trending</span> : null}
-      {custom && <span className="chip-del" onClick={(e) => { e.stopPropagation(); onDelete(); }}>✕</span>}
-      <span className="stage"><span className="sample" style={style}>
-        {words.map((w, i) => <span key={i} style={{ color: i === hl ? (cfg.highlight_color || "#FFD400") : undefined }}>{w} </span>)}
-      </span></span>
-      <span className="name">{label}</span>
-    </button>
-  );
-}
 
 function SaveBlock({ s, open, setOpen }) {
   const [name, setName] = useState("");
@@ -44,61 +28,46 @@ export default function Screen3Captions({
   transcript, curTime, seekTo, videoRef, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig,
   onBack, onNext,
 }) {
-  const [tab, setTab] = useState("themes");
+  const [tab, setTab] = useState("style");
   const [saveOpen, setSaveOpen] = useState(false);
   const s = studio;
-  const trending = s.presets.filter((p) => p.trending);
-  const standard = s.presets.filter((p) => !p.trending);
+  const activeSavedPreset = s.userPresets.find((up) => up.id === s.activeKey);
 
   return (
     <div className="wizard-screen">
       <div className="w3-grid">
         <div className="card w3-left">
-          <div className="card-h"><h2>Caption style</h2></div>
+          <div className="card-h"><h2>Edit captions</h2></div>
           <div className="studio-tabs">
-            <button className={"studio-tab" + (tab === "themes" ? " active" : "")} onClick={() => setTab("themes")}><Icons.library /><span className="studio-tab-lbl">Themes</span></button>
             <button className={"studio-tab" + (tab === "style" ? " active" : "")} onClick={() => setTab("style")}><Icons.create /><span className="studio-tab-lbl">Customize</span></button>
-            <button className={"studio-tab" + (tab === "presets" ? " active" : "")} onClick={() => setTab("presets")}><Icons.download /><span className="studio-tab-lbl">My presets</span></button>
             <button className={"studio-tab" + (tab === "transcript" ? " active" : "")} onClick={() => setTab("transcript")}><Icons.bolt /><span className="studio-tab-lbl">Transcript</span></button>
           </div>
-
-          {tab === "themes" && (
-            <div className="studio-pane">
-              <div className="chips">
-                {trending.map((p) => <Chip key={p.id} label={p.label} trending cfg={p} active={s.activeKey === p.id} onClick={() => s.selectPreset(p.id)} />)}
-                {standard.map((p) => <Chip key={p.id} label={p.label} cfg={p} active={s.activeKey === p.id} onClick={() => s.selectPreset(p.id)} />)}
-              </div>
-            </div>
-          )}
 
           {tab === "style" && (
             <div className="studio-pane">
               <div className="style-head">
                 <span className="eyebrow">Customize</span>
-                <button className="save-btn" onClick={() => setSaveOpen((v) => !v)}><Icons.download /> Save current</button>
+                <div className="style-actions">
+                  {s.userPresets.length > 0 && (
+                    <>
+                      <select aria-label="Load a saved caption style" value={activeSavedPreset?.id || ""}
+                        onChange={(e) => {
+                          const selected = s.userPresets.find((up) => up.id === e.target.value);
+                          if (selected) s.selectUserPreset(selected);
+                        }}>
+                        <option value="">Saved styles</option>
+                        {s.userPresets.map((up) => <option key={up.id} value={up.id}>{up.label}</option>)}
+                      </select>
+                      {activeSavedPreset && <button type="button" className="save-btn" title="Delete saved style"
+                        aria-label={"Delete saved style " + activeSavedPreset.label}
+                        onClick={() => s.removeUserPreset(activeSavedPreset.id)}>Remove</button>}
+                    </>
+                  )}
+                  <button className="save-btn" onClick={() => setSaveOpen((v) => !v)}><Icons.download /> Save current</button>
+                </div>
               </div>
               <SaveBlock s={s} open={saveOpen} setOpen={setSaveOpen} />
               <Customizer studio={s} onFontUpload={onFontUpload} />
-            </div>
-          )}
-
-          {tab === "presets" && (
-            <div className="studio-pane">
-              <div className="style-head">
-                <span className="eyebrow">My styles</span>
-                <button className="save-btn" onClick={() => setSaveOpen((v) => !v)}><Icons.download /> Save current</button>
-              </div>
-              <SaveBlock s={s} open={saveOpen} setOpen={setSaveOpen} />
-              <div className="chips">
-                {s.userPresets.map((up) => (
-                  <Chip key={up.id} label={up.label} custom active={s.activeKey === up.id}
-                    cfg={effectiveCfg(s.presets, up.base, up.overrides)}
-                    onClick={() => s.selectUserPreset(up)} onDelete={() => s.removeUserPreset(up.id)} />
-                ))}
-                {!s.userPresets.length && (
-                  <div className="empty" style={{ gridColumn: "1/-1", padding: 24 }}>No saved styles yet — tune a look in <b>Customize</b> and hit “Save current”.</div>
-                )}
-              </div>
             </div>
           )}
 
@@ -115,6 +84,7 @@ export default function Screen3Captions({
             barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
             overrides={studio.overrides} setOverride={studio.setOverride} />
+          <div className="note" style={{ marginTop: 10, textAlign: "center" }}>Drag the caption on the preview to place it anywhere in the frame.</div>
           <div className={"prep prep-" + (prepView.phase || "idle")}>
             <div className="prep-row">
               <span className="prep-msg">
