@@ -5,7 +5,7 @@
   Missing Python/FFmpeg are installed through WinGet only after confirmation.
   Existing app folders, models, videos, and shortcuts are never deleted.
 #>
-param([switch]$InstallerMode)
+param([switch]$InstallerMode, [switch]$BootstrapMode)
 
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
@@ -110,7 +110,7 @@ try {
     Write-Host "Setup creates a local Python environment, downloads Python packages, and adds desktop shortcuts."
     Write-Host "It does not delete your videos, models, existing apps, or shortcuts."
     Write-Host "Internet access is required. First setup can take several minutes."
-    if (-not $InstallerMode -and -not (Confirm-Action "Continue with setup?")) {
+    if (-not $InstallerMode -and -not $BootstrapMode -and -not (Confirm-Action "Continue with setup?")) {
         Write-Host "Cancelled. No prerequisites or Python packages were installed."
         exit 0
     }
